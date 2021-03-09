@@ -17,7 +17,7 @@ derivative = { version = "2.2.0", default-features = false }
 dyn-clone = { version = "1.0.4", default-features = false }
 futures = { version = "0.3.15", default-features = false, features = ["std"] }
 getset = { version = "0.1.1", default-features = false }
-indexmap = { version = "1.7.0", default-features = false, features = ["serde"] }
+indexmap = { version = "=1.6.2", default-features = false, features = ["serde"] }
 lazy_static = { version = "1.4.0", default-features = false }
 lookup = { path = "../lookup", features = ["arbitrary"] }
 metrics = { version = "0.16.0", default-features = false, features = ["std"]}

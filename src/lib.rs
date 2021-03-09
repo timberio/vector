@@ -31,6 +31,8 @@ pub mod generate;
 pub mod wasm;
 #[macro_use]
 pub mod internal_events;
+#[cfg(feature = "lapin")]
+pub mod amqp;
 #[cfg(feature = "api")]
 pub mod api;
 pub mod app;

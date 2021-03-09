@@ -63,6 +63,7 @@ impl Application {
                 format!("file_source={}", level),
                 "tower_limit=trace".to_owned(),
                 format!("rdkafka={}", level),
+                format!("lapin={}", level),
             ]
             .join(","),
         });
