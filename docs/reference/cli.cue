@@ -362,6 +362,13 @@ cli: {
 						The same result can be achieved by using `.` as the final expression.
 						"""
 				}
+
+				"tutorial": {
+					description: """
+						Starts up an interactive shell that guides you through a number of tutorials
+						that help you learn VRL.
+						"""
+				}
 			}
 
 			options: {

@@ -1,6 +1,6 @@
-#[cfg(feature = "repl")]
-use super::repl;
 use super::Error;
+#[cfg(feature = "repl")]
+use super::{repl, tutorial::vrl_tutorial};
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{self, Read};
@@ -29,6 +29,11 @@ pub struct Opts {
     /// this flag is equivalent to using `.` as the final expression.
     #[structopt(short = "o", long)]
     print_object: bool,
+
+    /// Run an interactive tutorial to learn VRL.
+    #[cfg(feature = "tutorial")]
+    #[structopt(long)]
+    tutorial: bool,
 }
 
 pub fn cmd(opts: &Opts) -> exitcode::ExitCode {
@@ -42,6 +47,10 @@ pub fn cmd(opts: &Opts) -> exitcode::ExitCode {
 }
 
 fn run(opts: &Opts) -> Result<(), Error> {
+    if opts.tutorial {
+        return vrl_tutorial();
+    }
+
     // Run the REPL if no program or program file is specified
     if should_open_repl(opts) {
         // If an input file is provided, use that for the REPL objects, otherwise provide a

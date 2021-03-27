@@ -12,6 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 vrl = { path = "../core" }
+vrl-compiler = { path = "../compiler", optional = true }
 bytes = "0.5.6"
 exitcode = "1"
 prettytable-rs = { version = "0.8", default-features = false, optional = true }
@@ -21,13 +22,15 @@ serde_json = "1"
 structopt = { version = "0.3", default-features = false }
 thiserror = "1"
 webbrowser = { version = "0.5", default-features = false, optional = true }
+indoc = { version = "1.0.3", optional = true }
+chrono = { version = "0.4.19", optional = true }
 lazy_static = { version = "1", optional = true }
-indoc = "1.0.3"
 
 [dependencies.stdlib]
 package = "vrl-stdlib"
 path = "../stdlib"
 
 [features]
-default = ["repl"]
+default = ["repl", "tutorial"]
 repl = ["lazy_static", "prettytable-rs", "regex", "rustyline", "webbrowser"]
+tutorial = ["chrono", "indoc", "vrl-compiler"]
