@@ -79,6 +79,7 @@ members = [
   "lib/vrl/stdlib",
   "lib/vrl/tests",
   "lib/vrl/proptests",
+  "lib/vrl/wasm",
 ]
 
 [dependencies]

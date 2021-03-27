@@ -1,0 +1,30 @@
+[package]
+name = "vrl-wasm"
+version = "0.1.0"
+authors = ["Vector Contributors <vector@timber.io>"]
+description = "A WebAssembly module for running Vector Remap Language"
+repository = "https://github.com/timberio/vector"
+license = "MIT"
+edition = "2018"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["wee_alloc"]
+dev = ["console_error_panic_hook"]
+
+[dependencies]
+vrl = { path = "../core" }
+vrl-stdlib = { path = "../stdlib", features = ["wasm_compatible"], default-features = false }
+wasm-bindgen = { version = "0.2.71", features = ["serde-serialize"] }
+serde = { version = "1.0.123", features = ["derive"] }
+indoc = "1.0.3"
+cfg-if = "1.0.0"
+wee_alloc = { version = "0.4.5", optional = true }
+console_error_panic_hook = { version = "0.1.6", optional = true }
+
+[dev-dependencies]
+indoc = "1.0.3"
+wasm-bindgen-test = "0.3.21"
