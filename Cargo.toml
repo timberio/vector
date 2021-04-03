@@ -76,6 +76,7 @@ members = [
   "lib/vrl/core",
   "lib/vrl/diagnostic",
   "lib/vrl/parser",
+  "lib/vrl/server",
   "lib/vrl/stdlib",
   "lib/vrl/tests",
   "lib/vrl/proptests",
