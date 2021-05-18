@@ -144,6 +144,10 @@ impl Pipeline {
             enqueued: VecDeque::with_capacity(10),
         }
     }
+
+    pub fn register_transform(&mut self, transform: Box<dyn FunctionTransform>) {
+        self.inlines.push(transform);
+    }
 }
 
 #[cfg(all(test, feature = "transforms-add_fields", feature = "transforms-filter"))]

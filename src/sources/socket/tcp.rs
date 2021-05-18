@@ -1,14 +1,16 @@
 use crate::{
     event::Event,
     internal_events::{SocketEventReceived, SocketMode},
-    sources::util::{SocketListenAddr, TcpSource},
+    sources::util::{SocketListenAddr, StreamDecoder, TcpSource},
     tcp::TcpKeepaliveConfig,
     tls::TlsConfig,
 };
-use bytes::Bytes;
-use codec::BytesDelimitedCodec;
+use bytes::{Bytes, BytesMut};
+use codec::{BytesDelimitedCodec, SyslogDecoder};
 use getset::{CopyGetters, Getters, Setters};
 use serde::{Deserialize, Serialize};
+use std::io;
+use tokio_util::codec::Decoder;
 
 #[derive(Deserialize, Serialize, Debug, Clone, Getters, CopyGetters, Setters)]
 pub struct TcpConfig {
@@ -28,6 +30,9 @@ pub struct TcpConfig {
     tls: Option<TlsConfig>,
     #[get_copy = "pub"]
     receive_buffer_bytes: Option<usize>,
+    #[serde(skip)]
+    #[set = "pub"]
+    decoder: Option<StreamDecoder>,
 }
 
 fn default_max_length() -> usize {
@@ -47,6 +52,7 @@ impl TcpConfig {
         host_key: Option<String>,
         tls: Option<TlsConfig>,
         receive_buffer_bytes: Option<usize>,
+        decoder: Option<StreamDecoder>,
     ) -> Self {
         Self {
             address,
@@ -56,6 +62,7 @@ impl TcpConfig {
             host_key,
             tls,
             receive_buffer_bytes,
+            decoder,
         }
     }
 
@@ -68,6 +75,7 @@ impl TcpConfig {
             host_key: None,
             tls: None,
             receive_buffer_bytes: None,
+            decoder: None,
         }
     }
 }
@@ -77,12 +85,42 @@ pub struct RawTcpSource {
     pub config: TcpConfig,
 }
 
+#[derive(Debug, Clone)]
+pub enum TcpDecoder {
+    BytesDecoder(BytesDelimitedCodec),
+    SyslogDecoder(SyslogDecoder),
+}
+
+impl Decoder for TcpDecoder {
+    type Item = Bytes;
+    type Error = io::Error;
+
+    fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        match self {
+            TcpDecoder::BytesDecoder(d) => d.decode(src),
+            TcpDecoder::SyslogDecoder(d) => d.decode(src),
+        }
+    }
+
+    fn decode_eof(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        match self {
+            TcpDecoder::BytesDecoder(d) => d.decode_eof(buf),
+            TcpDecoder::SyslogDecoder(d) => d.decode_eof(buf),
+        }
+    }
+}
+
 impl TcpSource for RawTcpSource {
     type Error = std::io::Error;
-    type Decoder = BytesDelimitedCodec;
+    type Decoder = StreamDecoder;
 
-    fn decoder(&self) -> Self::Decoder {
-        BytesDelimitedCodec::new_with_max_length(b'\n', self.config.max_length)
+    fn decoder(&self) -> StreamDecoder {
+        self.config.decoder.clone().unwrap_or_else(|| {
+            StreamDecoder::BytesDecoder(BytesDelimitedCodec::new_with_max_length(
+                b'\n',
+                self.config.max_length,
+            ))
+        })
     }
 
     fn build_event(&self, frame: Bytes, host: Bytes) -> Option<Event> {

@@ -12,7 +12,10 @@ use tokio::io::AsyncWriteExt;
 use tokio_util::codec::BytesCodec;
 use vector::{
     config, sinks,
-    sources::syslog::{Mode, SyslogConfig},
+    sources::{
+        socket::{tcp::TcpConfig, unix::UnixConfig, Mode, SocketConfig},
+        syslog::SyslogConfig,
+    },
     test_util::{
         next_addr, random_maps, random_string, send_encodable, send_lines, start_topology,
         trace_init, wait_for_tcp, CountReceiver,
@@ -29,11 +32,8 @@ async fn test_tcp_syslog() {
     let mut config = config::Config::builder();
     config.add_source(
         "in",
-        SyslogConfig::from_mode(Mode::Tcp {
-            address: in_addr.into(),
-            keepalive: None,
-            tls: None,
-            receive_buffer_bytes: None,
+        SyslogConfig::from(SocketConfig {
+            mode: Mode::Tcp(TcpConfig::from_address(in_addr.into())),
         }),
     );
     config.add_sink("out", &["in"], tcp_json_sink(out_addr.to_string()));
@@ -85,8 +85,8 @@ async fn test_unix_stream_syslog() {
     let mut config = config::Config::builder();
     config.add_source(
         "in",
-        SyslogConfig::from_mode(Mode::Unix {
-            path: in_path.clone(),
+        SyslogConfig::from(SocketConfig {
+            mode: Mode::UnixStream(UnixConfig::new(in_path.clone())),
         }),
     );
     config.add_sink("out", &["in"], tcp_json_sink(out_addr.to_string()));
@@ -147,11 +147,8 @@ async fn test_octet_counting_syslog() {
     let mut config = config::Config::builder();
     config.add_source(
         "in",
-        SyslogConfig::from_mode(Mode::Tcp {
-            address: in_addr.into(),
-            keepalive: None,
-            tls: None,
-            receive_buffer_bytes: None,
+        SyslogConfig::from(SocketConfig {
+            mode: Mode::Tcp(TcpConfig::from_address(in_addr.into())),
         }),
     );
     config.add_sink("out", &["in"], tcp_json_sink(out_addr.to_string()));

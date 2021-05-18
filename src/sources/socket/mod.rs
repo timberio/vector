@@ -1,7 +1,7 @@
 pub mod tcp;
 mod udp;
 #[cfg(unix)]
-mod unix;
+pub mod unix;
 
 use super::util::TcpSource;
 use crate::{
