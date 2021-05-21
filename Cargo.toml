@@ -537,6 +537,7 @@ sinks-logs = [
   "sinks-sematext",
   "sinks-socket",
   "sinks-splunk_hec",
+  "sinks-syslog",
   "sinks-vector"
 ]
 sinks-metrics = [
@@ -583,6 +584,7 @@ sinks-sematext = ["sinks-elasticsearch", "sinks-influxdb"]
 sinks-socket = ["sinks-utils-udp"]
 sinks-splunk_hec = ["bytesize"]
 sinks-statsd = ["sinks-utils-udp", "tokio-util/net"]
+sinks-syslog = ["sinks-utils-udp", "syslog_loose"]
 sinks-utils-udp = []
 sinks-vector = ["sinks-utils-udp"]
 
