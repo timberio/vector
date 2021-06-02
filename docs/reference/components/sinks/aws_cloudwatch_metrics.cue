@@ -70,6 +70,11 @@ components: sinks: aws_cloudwatch_metrics: components._aws & {
 				advanced feature useful in a distributed setting, however they
 				should be used with care.
 				""",
+			"""
+				CloudWatch Metrics explicitly rejects distribution metrics with more
+				than 150 values. To prevent this data loss, this sink will downsample
+				large distributions to reduce the number of samples to 150 or less.
+				""",
 		]
 		notices: [
 			"""
