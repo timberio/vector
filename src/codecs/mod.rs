@@ -1,3 +1,5 @@
+#[cfg(feature = "codecs-json")]
+mod json;
 #[cfg(test)]
 mod noop;
 

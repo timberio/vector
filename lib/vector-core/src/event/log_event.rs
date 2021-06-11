@@ -78,6 +78,11 @@ impl LogEvent {
         self.metadata.add_finalizer(finalizer);
     }
 
+    #[instrument(level = "trace")]
+    pub fn get_root(&self) -> &Value {
+        &self.fields
+    }
+
     #[instrument(level = "trace", skip(self, key), fields(key = %key.as_ref()))]
     pub fn get(&self, key: impl AsRef<str>) -> Option<&Value> {
         util::log::get(self.as_map(), key.as_ref())
@@ -130,6 +135,13 @@ impl LogEvent {
         if !self.contains(key) {
             self.insert(key, value);
         }
+    }
+
+    #[instrument(level = "trace")]
+    pub fn remove_root(&mut self) -> Value {
+        let root = self.fields.clone();
+        self.fields = BTreeMap::new().into();
+        root
     }
 
     #[instrument(level = "trace", skip(self, key), fields(key = %key.as_ref()))]
