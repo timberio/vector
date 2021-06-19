@@ -36,7 +36,7 @@ impl GenerateConfig for ConcatConfig {
 #[async_trait::async_trait]
 #[typetag::serde(name = "concat")]
 impl TransformConfig for ConcatConfig {
-    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         let joiner: String = match self.joiner.clone() {
             None => " ".into(),
             Some(var) => var,
@@ -133,7 +133,7 @@ impl Concat {
     }
 }
 
-impl FunctionTransform for Concat {
+impl FunctionTransform<Event> for Concat {
     fn transform(&mut self, output: &mut Vec<Event>, mut event: Event) {
         let mut content_vec: Vec<bytes::Bytes> = Vec::new();
 

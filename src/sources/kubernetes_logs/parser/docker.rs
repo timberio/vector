@@ -21,7 +21,7 @@ pub const LOG: &str = "log";
 #[derive(Clone, Debug)]
 pub struct Docker;
 
-impl FunctionTransform for Docker {
+impl FunctionTransform<Event> for Docker {
     fn transform(&mut self, output: &mut Vec<Event>, mut event: Event) {
         let log = event.as_mut_log();
         if let Err(err) = parse_json(log) {

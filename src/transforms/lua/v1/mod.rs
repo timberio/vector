@@ -31,7 +31,7 @@ pub struct LuaConfig {
 // possible configuration options for `transforms` section, but such internal name should not
 // be exposed to users.
 impl LuaConfig {
-    pub fn build(&self) -> crate::Result<Transform> {
+    pub fn build(&self) -> crate::Result<Transform<Event>> {
         Lua::new(self.source.clone(), self.search_dirs.clone()).map(Transform::task)
     }
 
@@ -152,7 +152,7 @@ impl Lua {
     }
 }
 
-impl TaskTransform for Lua {
+impl TaskTransform<Event> for Lua {
     fn transform(
         self: Box<Self>,
         task: Pin<Box<dyn Stream<Item = Event> + Send>>,

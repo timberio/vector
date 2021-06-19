@@ -40,7 +40,7 @@ impl_generate_config_from_default!(GrokParserConfig);
 #[async_trait::async_trait]
 #[typetag::serde(name = "grok_parser")]
 impl TransformConfig for GrokParserConfig {
-    async fn build(&self, globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         let field = self
             .field
             .clone()
@@ -104,7 +104,7 @@ impl Clone for GrokParser {
     }
 }
 
-impl FunctionTransform for GrokParser {
+impl FunctionTransform<Event> for GrokParser {
     fn transform(&mut self, output: &mut Vec<Event>, event: Event) {
         let mut event = event.into_log();
         let value = event.get(&self.field).map(|s| s.to_string_lossy());

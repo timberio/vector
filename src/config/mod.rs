@@ -1,7 +1,9 @@
+#[cfg(test)]
+use crate::framers::{Framer, NoopFramer};
 use crate::{
     buffers::Acker,
     conditions,
-    event::Metric,
+    event::{Event, Metric},
     shutdown::ShutdownSignal,
     sinks::{self, util::UriSerde},
     sources, transforms, Pipeline,
@@ -18,13 +20,16 @@ use std::fs::DirBuilder;
 use std::hash::Hash;
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use vector_core::transform::Transform;
 
 pub mod api;
 mod builder;
+pub mod codec;
 mod compiler;
 pub mod component;
 mod diff;
 pub mod format;
+mod framing;
 mod loading;
 pub mod provider;
 mod unit_test;
@@ -221,6 +226,10 @@ macro_rules! impl_generate_config_from_default {
 pub struct SourceOuter {
     #[serde(default = "default_acknowledgements")]
     pub acknowledgements: bool,
+    #[serde(default)]
+    pub framing: framing::FramingsConfig,
+    #[serde(default)]
+    pub codec: codec::CodecsConfig,
     #[serde(flatten)]
     pub(super) inner: Box<dyn SourceConfig>,
 }
@@ -230,8 +239,14 @@ fn default_acknowledgements() -> bool {
 }
 
 impl SourceOuter {
-    pub(crate) fn new(source: impl SourceConfig + 'static) -> Self {
+    pub(crate) fn new(
+        framing: framing::FramingsConfig,
+        codec: codec::CodecsConfig,
+        source: impl SourceConfig + 'static,
+    ) -> Self {
         Self {
+            framing,
+            codec,
             acknowledgements: default_acknowledgements(),
             inner: Box::new(source),
         }
@@ -255,6 +270,7 @@ pub trait SourceConfig: core::fmt::Debug + Send + Sync {
 
 pub struct SourceContext {
     pub name: String,
+    pub framing: Transform<Vec<u8>>,
     pub globals: GlobalOptions,
     pub shutdown: ShutdownSignal,
     pub out: Pipeline,
@@ -272,6 +288,7 @@ impl SourceContext {
         (
             Self {
                 name: name.into(),
+                framing: NoopFramer.build().unwrap(),
                 globals: GlobalOptions::default(),
                 shutdown: shutdown_signal,
                 out,
@@ -285,6 +302,7 @@ impl SourceContext {
     pub fn new_test(out: Pipeline) -> Self {
         Self {
             name: "default".into(),
+            framing: NoopFramer.build().unwrap(),
             globals: GlobalOptions::default(),
             shutdown: ShutdownSignal::noop(),
             out,
@@ -439,7 +457,7 @@ pub struct TransformOuter {
 #[async_trait]
 #[typetag::serde(tag = "type")]
 pub trait TransformConfig: core::fmt::Debug + Send + Sync + dyn_clone::DynClone {
-    async fn build(&self, globals: &GlobalOptions) -> crate::Result<transforms::Transform>;
+    async fn build(&self, globals: &GlobalOptions) -> crate::Result<transforms::Transform<Event>>;
 
     fn input_type(&self) -> DataType;
 

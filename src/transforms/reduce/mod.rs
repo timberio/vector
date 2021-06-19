@@ -51,7 +51,7 @@ impl_generate_config_from_default!(ReduceConfig);
 #[async_trait::async_trait]
 #[typetag::serde(name = "reduce")]
 impl TransformConfig for ReduceConfig {
-    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         Reduce::new(self).map(Transform::task)
     }
 
@@ -246,7 +246,7 @@ impl Reduce {
     }
 }
 
-impl TaskTransform for Reduce {
+impl TaskTransform<Event> for Reduce {
     fn transform(
         self: Box<Self>,
         mut input_rx: Pin<Box<dyn Stream<Item = Event> + Send>>,

@@ -118,7 +118,7 @@ impl GenerateConfig for LogToMetricConfig {
 #[async_trait::async_trait]
 #[typetag::serde(name = "log_to_metric")]
 impl TransformConfig for LogToMetricConfig {
-    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         Ok(Transform::function(LogToMetric::new(self.clone())))
     }
 
@@ -367,7 +367,7 @@ fn to_metric(config: &MetricConfig, event: &Event) -> Result<Metric, TransformEr
     }
 }
 
-impl FunctionTransform for LogToMetric {
+impl FunctionTransform<Event> for LogToMetric {
     fn transform(&mut self, output: &mut Vec<Event>, event: Event) {
         for config in self.config.metrics.iter() {
             match to_metric(&config, &event) {

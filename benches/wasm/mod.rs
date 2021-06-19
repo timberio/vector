@@ -53,7 +53,7 @@ pub fn protobuf(c: &mut Criterion) {
 }
 
 pub fn add_fields(criterion: &mut Criterion) {
-    let transforms: Vec<(&str, Transform)> = vec![
+    let transforms: Vec<(&str, Transform<Event>)> = vec![
         (
             "lua",
             Transform::task(
@@ -127,7 +127,7 @@ pub fn add_fields(criterion: &mut Criterion) {
 fn bench_group_transforms_over_parameterized_event_sizes(
     criterion: &mut Criterion,
     group: &str,
-    transforms: Vec<(&str, Transform)>,
+    transforms: Vec<(&str, Transform<Event>)>,
     parameters: Vec<usize>,
 ) {
     vector::test_util::trace_init();

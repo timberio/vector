@@ -19,7 +19,7 @@ pub struct LaneConfig {
 #[async_trait::async_trait]
 #[typetag::serde(name = "lane")]
 impl TransformConfig for LaneConfig {
-    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         Ok(Transform::function(Lane::new(self.condition.build()?)))
     }
 
@@ -49,7 +49,7 @@ impl Lane {
     }
 }
 
-impl FunctionTransform for Lane {
+impl FunctionTransform<Event> for Lane {
     fn transform(&mut self, output: &mut Vec<Event>, event: Event) {
         if self.condition.check(&event) {
             output.push(event);
@@ -89,7 +89,7 @@ impl GenerateConfig for RouteConfig {
 #[async_trait::async_trait]
 #[typetag::serde(name = "route")]
 impl TransformConfig for RouteConfig {
-    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         Err("this transform must be expanded".into())
     }
 
@@ -127,7 +127,7 @@ struct RouteCompatConfig(RouteConfig);
 #[async_trait::async_trait]
 #[typetag::serde(name = "swimlanes")]
 impl TransformConfig for RouteCompatConfig {
-    async fn build(&self, globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         self.0.build(globals).await
     }
 

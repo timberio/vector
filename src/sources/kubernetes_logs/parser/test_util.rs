@@ -33,7 +33,7 @@ pub fn make_log_event(message: &str, timestamp: &str, stream: &str, is_partial: 
 /// Takes a parser builder and a list of test cases.
 pub fn test_parser<B>(builder: B, cases: Vec<(String, Vec<LogEvent>)>)
 where
-    B: Fn() -> Transform,
+    B: Fn() -> Transform<Event>,
 {
     for (message, expected) in cases {
         let input = Event::from(message);

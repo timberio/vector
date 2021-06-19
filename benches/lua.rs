@@ -20,7 +20,7 @@ fn bench_add_fields(c: &mut Criterion) {
     let mut group = c.benchmark_group("lua/add_fields");
     group.throughput(Throughput::Elements(1));
 
-    let benchmarks: Vec<(&str, Transform)> = vec![
+    let benchmarks: Vec<(&str, Transform<Event>)> = vec![
         ("native", {
             let mut map = IndexMap::new();
             map.insert(String::from(key), value.to_owned().into());
@@ -98,7 +98,7 @@ fn bench_field_filter(c: &mut Criterion) {
     let mut group = c.benchmark_group("lua/field_filter");
     group.throughput(Throughput::Elements(num_events));
 
-    let benchmarks: Vec<(&str, Transform)> = vec![
+    let benchmarks: Vec<(&str, Transform<Event>)> = vec![
         ("native", {
             let rt = runtime();
             rt.block_on(async move {

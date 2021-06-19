@@ -311,6 +311,8 @@ mod test {
                 tls: None,
                 auth: None,
             },
+            None,
+            None,
         );
         config.add_sink(
             "out",

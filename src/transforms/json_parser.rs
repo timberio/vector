@@ -28,7 +28,7 @@ impl_generate_config_from_default!(JsonParserConfig);
 #[async_trait::async_trait]
 #[typetag::serde(name = "json_parser")]
 impl TransformConfig for JsonParserConfig {
-    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         Ok(Transform::function(JsonParser::from(self.clone())))
     }
 
@@ -70,7 +70,7 @@ impl From<JsonParserConfig> for JsonParser {
     }
 }
 
-impl FunctionTransform for JsonParser {
+impl FunctionTransform<Event> for JsonParser {
     fn transform(&mut self, output: &mut Vec<Event>, mut event: Event) {
         let log = event.as_mut_log();
         let value = log.get(&self.field);

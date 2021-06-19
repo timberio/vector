@@ -87,7 +87,7 @@ struct TimerConfig {
 // possible configuration options for `transforms` section, but such internal name should not
 // be exposed to users.
 impl LuaConfig {
-    pub fn build(&self) -> crate::Result<Transform> {
+    pub fn build(&self) -> crate::Result<Transform<Event>> {
         Lua::new(&self).map(Transform::task)
     }
 

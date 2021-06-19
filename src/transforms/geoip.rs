@@ -61,7 +61,7 @@ impl GenerateConfig for GeoipConfig {
 #[async_trait::async_trait]
 #[typetag::serde(name = "geoip")]
 impl TransformConfig for GeoipConfig {
-    async fn build(&self, _globals: &GlobalOptions) -> Result<Transform> {
+    async fn build(&self, _globals: &GlobalOptions) -> Result<Transform<Event>> {
         Ok(Transform::function(Geoip::new(
             self.database.clone(),
             self.source.clone(),
@@ -123,7 +123,7 @@ struct City<'a> {
     postal_code: &'a str,
 }
 
-impl FunctionTransform for Geoip {
+impl FunctionTransform<Event> for Geoip {
     fn transform(&mut self, output: &mut Vec<Event>, mut event: Event) {
         let mut isp: Isp = Default::default();
         let mut city: City = Default::default();

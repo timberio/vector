@@ -36,7 +36,7 @@ impl GenerateConfig for MetricToLogConfig {
 #[async_trait::async_trait]
 #[typetag::serde(name = "metric_to_log")]
 impl TransformConfig for MetricToLogConfig {
-    async fn build(&self, globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         Ok(Transform::function(MetricToLog::new(
             self.host_tag.clone(),
             self.timezone.unwrap_or(globals.timezone),
@@ -76,7 +76,7 @@ impl MetricToLog {
     }
 }
 
-impl FunctionTransform for MetricToLog {
+impl FunctionTransform<Event> for MetricToLog {
     fn transform(&mut self, output: &mut Vec<Event>, event: Event) {
         let metric = event.into_metric();
 

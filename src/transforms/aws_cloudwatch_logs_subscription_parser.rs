@@ -27,7 +27,7 @@ inventory::submit! {
 #[async_trait::async_trait]
 #[typetag::serde(name = "aws_cloudwatch_logs_subscription_parser")]
 impl TransformConfig for AwsCloudwatchLogsSubscriptionParserConfig {
-    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         Ok(Transform::function(
             AwsCloudwatchLogsSubscriptionParser::from(self.clone()),
         ))
@@ -69,7 +69,7 @@ impl From<AwsCloudwatchLogsSubscriptionParserConfig> for AwsCloudwatchLogsSubscr
     }
 }
 
-impl FunctionTransform for AwsCloudwatchLogsSubscriptionParser {
+impl FunctionTransform<Event> for AwsCloudwatchLogsSubscriptionParser {
     fn transform(&mut self, output: &mut Vec<Event>, event: Event) {
         let log = event.as_log();
 

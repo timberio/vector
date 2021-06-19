@@ -29,7 +29,7 @@ impl GenerateConfig for RemoveTagsConfig {
 #[async_trait::async_trait]
 #[typetag::serde(name = "remove_tags")]
 impl TransformConfig for RemoveTagsConfig {
-    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         Ok(Transform::function(RemoveTags::new(self.tags.clone())))
     }
 
@@ -52,7 +52,7 @@ impl RemoveTags {
     }
 }
 
-impl FunctionTransform for RemoveTags {
+impl FunctionTransform<Event> for RemoveTags {
     fn transform(&mut self, output: &mut Vec<Event>, mut event: Event) {
         let metric = event.as_mut_metric();
 

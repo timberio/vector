@@ -193,7 +193,7 @@ pub struct MockTransform {
     increase: f64,
 }
 
-impl FunctionTransform for MockTransform {
+impl FunctionTransform<Event> for MockTransform {
     fn transform(&mut self, output: &mut Vec<Event>, mut event: Event) {
         match &mut event {
             Event::Log(log) => {
@@ -257,7 +257,7 @@ impl MockTransformConfig {
 #[async_trait]
 #[typetag::serde(name = "mock")]
 impl TransformConfig for MockTransformConfig {
-    async fn build(&self, _globals: &GlobalOptions) -> Result<Transform, vector::Error> {
+    async fn build(&self, _globals: &GlobalOptions) -> Result<Transform<Event>, vector::Error> {
         Ok(Transform::function(MockTransform {
             suffix: self.suffix.clone(),
             increase: self.increase,

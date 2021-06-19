@@ -28,7 +28,7 @@ impl_generate_config_from_default!(RemapConfig);
 #[async_trait::async_trait]
 #[typetag::serde(name = "remap")]
 impl TransformConfig for RemapConfig {
-    async fn build(&self, _globals: &GlobalOptions) -> Result<Transform> {
+    async fn build(&self, _globals: &GlobalOptions) -> Result<Transform<Event>> {
         Remap::new(self.clone()).map(Transform::function)
     }
 
@@ -68,7 +68,7 @@ impl Remap {
     }
 }
 
-impl FunctionTransform for Remap {
+impl FunctionTransform<Event> for Remap {
     fn transform(&mut self, output: &mut Vec<Event>, event: Event) {
         // If a program can fail or abort at runtime, we need to clone the
         // original event and keep it around, to allow us to discard any

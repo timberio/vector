@@ -21,11 +21,13 @@ extern crate vrl_cli;
 #[macro_use]
 pub mod config;
 pub mod cli;
+pub mod codecs;
 pub mod conditions;
 pub mod dns;
 #[cfg(feature = "docker")]
 pub mod docker;
 pub mod expiring_hash_map;
+pub mod framers;
 pub mod generate;
 #[cfg(feature = "wasm")]
 pub mod wasm;
@@ -80,7 +82,7 @@ pub mod vector_windows;
 
 pub use pipeline::Pipeline;
 
-pub use vector_core::{event, mapping, metrics, Error, Result};
+pub use vector_core::{event, mapping, metrics, transform, Error, Result};
 
 pub fn vector_version() -> impl std::fmt::Display {
     #[cfg(feature = "nightly")]

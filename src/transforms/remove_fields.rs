@@ -36,7 +36,7 @@ impl GenerateConfig for RemoveFieldsConfig {
 #[async_trait::async_trait]
 #[typetag::serde(name = "remove_fields")]
 impl TransformConfig for RemoveFieldsConfig {
-    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         RemoveFields::new(self.fields.clone(), self.drop_empty.unwrap_or(false))
             .map(Transform::function)
     }
@@ -60,7 +60,7 @@ impl RemoveFields {
     }
 }
 
-impl FunctionTransform for RemoveFields {
+impl FunctionTransform<Event> for RemoveFields {
     fn transform(&mut self, output: &mut Vec<Event>, mut event: Event) {
         let log = event.as_mut_log();
         for field in &self.fields {

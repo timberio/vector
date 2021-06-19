@@ -28,7 +28,7 @@ impl_generate_config_from_default!(LogfmtConfig);
 #[async_trait::async_trait]
 #[typetag::serde(name = "logfmt_parser")]
 impl TransformConfig for LogfmtConfig {
-    async fn build(&self, globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         let field = self
             .field
             .clone()
@@ -63,7 +63,7 @@ pub struct Logfmt {
     conversions: HashMap<String, Conversion>,
 }
 
-impl FunctionTransform for Logfmt {
+impl FunctionTransform<Event> for Logfmt {
     fn transform(&mut self, output: &mut Vec<Event>, mut event: Event) {
         let value = event.as_log().get(&self.field).map(|s| s.to_string_lossy());
 

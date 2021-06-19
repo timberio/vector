@@ -28,7 +28,7 @@ fn benchmark_remap(c: &mut Criterion) {
     let mut group = c.benchmark_group("remap");
 
     let rt = runtime();
-    let add_fields_runner = |tform: &mut Box<dyn FunctionTransform>, event: Event| {
+    let add_fields_runner = |tform: &mut Box<dyn FunctionTransform<Event>>, event: Event| {
         let mut result = Vec::with_capacity(1);
         tform.transform(&mut result, event);
         let output_1 = result[0].as_log();
@@ -41,7 +41,7 @@ fn benchmark_remap(c: &mut Criterion) {
     };
 
     group.bench_function("add_fields/remap", |b| {
-        let mut tform: Box<dyn FunctionTransform> = Box::new(
+        let mut tform: Box<dyn FunctionTransform<Event>> = Box::new(
             Remap::new(RemapConfig {
                 source: indoc! {r#".foo = "bar"
                     .bar = "baz"
@@ -73,7 +73,8 @@ fn benchmark_remap(c: &mut Criterion) {
         fields.insert("bar".into(), String::from("baz").into());
         fields.insert("copy".into(), String::from("{{ copy_from }}").into());
 
-        let mut tform: Box<dyn FunctionTransform> = Box::new(AddFields::new(fields, true).unwrap());
+        let mut tform: Box<dyn FunctionTransform<Event>> =
+            Box::new(AddFields::new(fields, true).unwrap());
 
         let event = {
             let mut event = Event::from("augment me");
@@ -88,7 +89,7 @@ fn benchmark_remap(c: &mut Criterion) {
         );
     });
 
-    let json_parser_runner = |tform: &mut Box<dyn FunctionTransform>, event: Event| {
+    let json_parser_runner = |tform: &mut Box<dyn FunctionTransform<Event>>, event: Event| {
         let mut result = Vec::with_capacity(1);
         tform.transform(&mut result, event);
         let output_1 = result[0].as_log();
@@ -106,7 +107,7 @@ fn benchmark_remap(c: &mut Criterion) {
     };
 
     group.bench_function("parse_json/remap", |b| {
-        let mut tform: Box<dyn FunctionTransform> = Box::new(
+        let mut tform: Box<dyn FunctionTransform<Event>> = Box::new(
             Remap::new(RemapConfig {
                 source: ".bar = parse_json!(string!(.foo))".to_owned(),
                 drop_on_error: true,
@@ -131,13 +132,14 @@ fn benchmark_remap(c: &mut Criterion) {
     });
 
     group.bench_function("parse_json/native", |b| {
-        let mut tform: Box<dyn FunctionTransform> = Box::new(JsonParser::from(JsonParserConfig {
-            field: Some("foo".to_string()),
-            target_field: Some("bar".to_owned()),
-            drop_field: false,
-            drop_invalid: false,
-            overwrite_target: None,
-        }));
+        let mut tform: Box<dyn FunctionTransform<Event>> =
+            Box::new(JsonParser::from(JsonParserConfig {
+                field: Some("foo".to_string()),
+                target_field: Some("bar".to_owned()),
+                drop_field: false,
+                drop_invalid: false,
+                overwrite_target: None,
+            }));
 
         let event = {
             let mut event = Event::from("parse me");
@@ -155,7 +157,7 @@ fn benchmark_remap(c: &mut Criterion) {
     });
 
     let coerce_runner =
-        |tform: &mut Box<dyn FunctionTransform>, event: Event, timestamp: DateTime<Utc>| {
+        |tform: &mut Box<dyn FunctionTransform<Event>>, event: Event, timestamp: DateTime<Utc>| {
             let mut result = Vec::with_capacity(1);
             tform.transform(&mut result, event);
             let output_1 = result[0].as_log();
@@ -171,7 +173,7 @@ fn benchmark_remap(c: &mut Criterion) {
         };
 
     group.bench_function("coerce/remap", |b| {
-        let mut tform: Box<dyn FunctionTransform> = Box::new(
+        let mut tform: Box<dyn FunctionTransform<Event>> = Box::new(
             Remap::new(RemapConfig {
                 source: indoc! {r#"
                     .number = to_int!(.number)
@@ -207,7 +209,7 @@ fn benchmark_remap(c: &mut Criterion) {
     });
 
     group.bench_function("coerce/native", |b| {
-        let mut tform: Box<dyn FunctionTransform> = rt
+        let mut tform: Box<dyn FunctionTransform<Event>> = rt
             .block_on(async move {
                 toml::from_str::<CoercerConfig>(indoc! {r#"
                         drop_unspecified = false

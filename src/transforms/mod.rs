@@ -90,7 +90,10 @@ mod test {
     // this function -- but flagging this function off for bench flags will
     // issue a unused warnings about the import above.
     #[allow(dead_code)]
-    pub(crate) fn transform_one(ft: &mut dyn FunctionTransform, event: Event) -> Option<Event> {
+    pub(crate) fn transform_one(
+        ft: &mut dyn FunctionTransform<Event>,
+        event: Event,
+    ) -> Option<Event> {
         let mut buf = Vec::with_capacity(1);
         ft.transform(&mut buf, event);
         assert!(buf.len() < 2);

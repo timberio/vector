@@ -11,9 +11,9 @@ use std::pin::Pin;
 /// as-is.
 /// Useful to avoid boxing the transforms.
 #[derive(Clone, Debug)]
-pub struct Optional<T: TaskTransform>(pub Option<T>);
+pub struct Optional<T: TaskTransform<Event>>(pub Option<T>);
 
-impl<T: TaskTransform> TaskTransform for Optional<T> {
+impl<T: TaskTransform<Event>> TaskTransform<Event> for Optional<T> {
     fn transform(
         self: Box<Self>,
         task: Pin<Box<dyn Stream<Item = Event> + Send>>,

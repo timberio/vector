@@ -37,7 +37,7 @@ impl GenerateConfig for SampleConfig {
 #[async_trait::async_trait]
 #[typetag::serde(name = "sample")]
 impl TransformConfig for SampleConfig {
-    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         Ok(Transform::function(Sample::new(
             self.rate,
             self.key_field.clone(),
@@ -68,7 +68,7 @@ struct SampleCompatConfig(SampleConfig);
 #[async_trait::async_trait]
 #[typetag::serde(name = "sampler")]
 impl TransformConfig for SampleCompatConfig {
-    async fn build(&self, globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         self.0.build(globals).await
     }
 
@@ -104,7 +104,7 @@ impl Sample {
     }
 }
 
-impl FunctionTransform for Sample {
+impl FunctionTransform<Event> for Sample {
     fn transform(&mut self, output: &mut Vec<Event>, mut event: Event) {
         if let Some(condition) = self.exclude.as_ref() {
             if condition.check(&event) {

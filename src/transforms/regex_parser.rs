@@ -46,7 +46,7 @@ impl_generate_config_from_default!(RegexParserConfig);
 #[async_trait::async_trait]
 #[typetag::serde(name = "regex_parser")]
 impl TransformConfig for RegexParserConfig {
-    async fn build(&self, globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         RegexParser::build(&self, globals.timezone)
     }
 
@@ -140,7 +140,10 @@ impl CompiledRegex {
 }
 
 impl RegexParser {
-    pub fn build(config: &RegexParserConfig, timezone: TimeZone) -> crate::Result<Transform> {
+    pub fn build(
+        config: &RegexParserConfig,
+        timezone: TimeZone,
+    ) -> crate::Result<Transform<Event>> {
         let field = config
             .field
             .clone()
@@ -239,7 +242,7 @@ impl RegexParser {
     }
 }
 
-impl FunctionTransform for RegexParser {
+impl FunctionTransform<Event> for RegexParser {
     fn transform(&mut self, output: &mut Vec<Event>, mut event: Event) {
         let log = event.as_mut_log();
         let value = log.get(&self.field).map(|s| s.as_bytes());

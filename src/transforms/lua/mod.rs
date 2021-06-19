@@ -6,6 +6,7 @@ use crate::{
     transforms::Transform,
 };
 use serde::{Deserialize, Serialize};
+use vector_core::event::Event;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 enum V1 {
@@ -59,7 +60,7 @@ impl GenerateConfig for LuaConfig {
 #[async_trait::async_trait]
 #[typetag::serde(name = "lua")]
 impl TransformConfig for LuaConfig {
-    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         match self {
             LuaConfig::V1(v1) => v1.config.build(),
             LuaConfig::V2(v2) => v2.config.build(),

@@ -37,7 +37,7 @@ impl_generate_config_from_default!(KeyValueConfig);
 #[async_trait::async_trait]
 #[typetag::serde(name = "key_value_parser")]
 impl TransformConfig for KeyValueConfig {
-    async fn build(&self, globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         let timezone = self.timezone.unwrap_or(globals.timezone);
         let conversions = parse_conversion_map(&self.types, timezone)?;
         let field = self
@@ -129,7 +129,7 @@ impl KeyValue {
     }
 }
 
-impl FunctionTransform for KeyValue {
+impl FunctionTransform<Event> for KeyValue {
     fn transform(&mut self, output: &mut Vec<Event>, mut event: Event) {
         let log = event.as_mut_log();
         let value = log.get(&self.field).map(|s| s.to_string_lossy());

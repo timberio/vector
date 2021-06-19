@@ -15,14 +15,14 @@ use vector::{config::Config, event::Event, test_util::start_topology, topology};
 
 fn basic_config() -> Config {
     let mut config = Config::builder();
-    config.add_source("in1", source().1);
+    config.add_source("in1", source().1, None, None);
     config.add_sink("out1", &["in1"], sink(10).1);
     config.build().unwrap()
 }
 
 fn basic_config_with_sink_failing_healthcheck() -> Config {
     let mut config = Config::builder();
-    config.add_source("in1", source().1);
+    config.add_source("in1", source().1, None, None);
     config.add_sink("out1", &["in1"], sink_failing_healthcheck(10).1);
     config.build().unwrap()
 }
@@ -47,7 +47,7 @@ async fn topology_shutdown_while_active() {
     let (out1, sink1) = sink(10);
 
     let mut config = Config::builder();
-    config.add_source("in1", source1);
+    config.add_source("in1", source1, None, None);
     config.add_transform("t1", &["in1"], transform1);
     config.add_sink("out1", &["t1"], sink1);
 
@@ -96,7 +96,7 @@ async fn topology_source_and_sink() {
     let (out1, sink1) = sink(10);
 
     let mut config = Config::builder();
-    config.add_source("in1", source1);
+    config.add_source("in1", source1, None, None);
     config.add_sink("out1", &["in1"], sink1);
 
     let (topology, _crash) = start_topology(config.build().unwrap(), false).await;
@@ -118,8 +118,8 @@ async fn topology_multiple_sources() {
     let (mut out1, sink1) = sink(10);
 
     let mut config = Config::builder();
-    config.add_source("in1", source1);
-    config.add_source("in2", source2);
+    config.add_source("in1", source1, None, None);
+    config.add_source("in2", source2, None, None);
     config.add_sink("out1", &["in1", "in2"], sink1);
 
     let (topology, _crash) = start_topology(config.build().unwrap(), false).await;
@@ -148,7 +148,7 @@ async fn topology_multiple_sinks() {
     let (out2, sink2) = sink(10);
 
     let mut config = Config::builder();
-    config.add_source("in1", source1);
+    config.add_source("in1", source1, None, None);
     config.add_sink("out1", &["in1"], sink1);
     config.add_sink("out2", &["in1"], sink2);
 
@@ -175,7 +175,7 @@ async fn topology_transform_chain() {
     let (out1, sink1) = sink(10);
 
     let mut config = Config::builder();
-    config.add_source("in1", source1);
+    config.add_source("in1", source1, None, None);
     config.add_transform("t1", &["in1"], transform1);
     config.add_transform("t2", &["t1"], transform2);
     config.add_sink("out1", &["t2"], sink1);
@@ -200,8 +200,8 @@ async fn topology_remove_one_source() {
     let (_out1, sink1) = sink(10);
 
     let mut config = Config::builder();
-    config.add_source("in1", source1);
-    config.add_source("in2", source2);
+    config.add_source("in1", source1, None, None);
+    config.add_source("in2", source2, None, None);
     config.add_sink("out1", &["in1", "in2"], sink1);
 
     let (mut topology, _crash) = start_topology(config.build().unwrap(), false).await;
@@ -209,7 +209,7 @@ async fn topology_remove_one_source() {
     let (out1, sink1) = sink(10);
 
     let mut config = Config::builder();
-    config.add_source("in1", source().1);
+    config.add_source("in1", source().1, None, None);
     config.add_sink("out1", &["in1"], sink1);
 
     assert!(topology
@@ -235,14 +235,14 @@ async fn topology_remove_one_sink() {
     let (out2, sink2) = sink(10);
 
     let mut config = Config::builder();
-    config.add_source("in1", source1);
+    config.add_source("in1", source1, None, None);
     config.add_sink("out1", &["in1"], sink1);
     config.add_sink("out2", &["in1"], sink2);
 
     let (mut topology, _crash) = start_topology(config.build().unwrap(), false).await;
 
     let mut config = Config::builder();
-    config.add_source("in1", source().1);
+    config.add_source("in1", source().1, None, None);
     config.add_sink("out1", &["in1"], sink(10).1);
 
     assert!(topology
@@ -271,7 +271,7 @@ async fn topology_remove_one_transform() {
     let (out1, sink1) = sink(10);
 
     let mut config = Config::builder();
-    config.add_source("in1", source1);
+    config.add_source("in1", source1, None, None);
     config.add_transform("t1", &["in1"], transform1);
     config.add_transform("t2", &["t1"], transform2);
     config.add_sink("out1", &["t2"], sink1);
@@ -281,7 +281,7 @@ async fn topology_remove_one_transform() {
     let transform2 = transform(" transformed", 0.0);
 
     let mut config = Config::builder();
-    config.add_source("in1", source().1);
+    config.add_source("in1", source().1, None, None);
     config.add_transform("t2", &["in1"], transform2);
     config.add_sink("out1", &["t2"], sink(10).1);
 
@@ -304,7 +304,7 @@ async fn topology_swap_source() {
     let (out1v1, sink1v1) = sink(10);
 
     let mut config = Config::builder();
-    config.add_source("in1", source1);
+    config.add_source("in1", source1, None, None);
     config.add_sink("out1", &["in1"], sink1v1);
 
     let (mut topology, _crash) = start_topology(config.build().unwrap(), false).await;
@@ -313,7 +313,7 @@ async fn topology_swap_source() {
     let (out1v2, sink1v2) = sink(10);
 
     let mut config = Config::builder();
-    config.add_source("in2", source2);
+    config.add_source("in2", source2, None, None);
     config.add_sink("out1", &["in2"], sink1v2);
 
     assert!(topology
@@ -342,7 +342,7 @@ async fn topology_swap_sink() {
     let (out1, sink1) = sink(10);
 
     let mut config = Config::builder();
-    config.add_source("in1", source1);
+    config.add_source("in1", source1, None, None);
     config.add_sink("out1", &["in1"], sink1);
 
     let (mut topology, _crash) = start_topology(config.build().unwrap(), false).await;
@@ -350,7 +350,7 @@ async fn topology_swap_sink() {
     let (out2, sink2) = sink(10);
 
     let mut config = Config::builder();
-    config.add_source("in1", source().1);
+    config.add_source("in1", source().1, None, None);
     config.add_sink("out2", &["in1"], sink2);
 
     assert!(topology
@@ -378,7 +378,7 @@ async fn topology_swap_transform() {
     let (out1v1, sink1v1) = sink(10);
 
     let mut config = Config::builder();
-    config.add_source("in1", source1);
+    config.add_source("in1", source1, None, None);
     config.add_transform("t1", &["in1"], transform1);
     config.add_sink("out1", &["t1"], sink1v1);
 
@@ -388,7 +388,7 @@ async fn topology_swap_transform() {
     let (out1v2, sink1v2) = sink(10);
 
     let mut config = Config::builder();
-    config.add_source("in1", source().1);
+    config.add_source("in1", source().1, None, None);
     config.add_transform("t2", &["in1"], transform2);
     config.add_sink("out1", &["t2"], sink1v2);
 
@@ -446,7 +446,7 @@ async fn topology_swap_transform_is_atomic() {
     let h_in = tokio::spawn(input);
 
     let mut config = Config::builder();
-    config.add_source("in1", source1);
+    config.add_source("in1", source1, None, None);
     config.add_transform("t1", &["in1"], transform1v1);
     config.add_sink("out1", &["t1"], sink1);
 
@@ -456,7 +456,7 @@ async fn topology_swap_transform_is_atomic() {
     let transform1v2 = transform(" replaced", 0.0);
 
     let mut config = Config::builder();
-    config.add_source("in1", source().1);
+    config.add_source("in1", source().1, None, None);
     config.add_transform("t1", &["in1"], transform1v2);
     config.add_sink("out1", &["t1"], sink(10).1);
 
@@ -526,7 +526,7 @@ async fn topology_healthcheck_run_for_changes_on_reload() {
     let mut config = Config::builder();
     // We can't just drop the sender side since that will close the source.
     let (_ch0, src) = source();
-    config.add_source("in1", src);
+    config.add_source("in1", src, None, None);
     config.add_sink("out1", &["in1"], sink(10).1);
 
     let (mut topology, _crash) = start_topology(config.build().unwrap(), false).await;
@@ -534,7 +534,7 @@ async fn topology_healthcheck_run_for_changes_on_reload() {
     let mut config = Config::builder();
     // We can't just drop the sender side since that will close the source.
     let (_ch1, src) = source();
-    config.add_source("in1", src);
+    config.add_source("in1", src, None, None);
     config.add_sink("out2", &["in1"], sink_failing_healthcheck(10).1);
 
     let mut config = config.build().unwrap();

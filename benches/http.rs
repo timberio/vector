@@ -38,6 +38,8 @@ fn benchmark_http(c: &mut Criterion) {
                         config.add_source(
                             "in",
                             sources::socket::SocketConfig::make_basic_tcp_config(in_addr),
+                            None,
+                            None,
                         );
                         config.add_sink(
                             "out",

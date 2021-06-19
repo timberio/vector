@@ -26,7 +26,7 @@ impl Picker {
     }
 }
 
-impl FunctionTransform for Picker {
+impl FunctionTransform<Event> for Picker {
     fn transform(&mut self, output: &mut Vec<Event>, event: Event) {
         match &mut self.state {
             PickerState::Init => {

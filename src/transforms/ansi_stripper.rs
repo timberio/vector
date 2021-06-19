@@ -26,7 +26,7 @@ impl GenerateConfig for AnsiStripperConfig {
 #[async_trait::async_trait]
 #[typetag::serde(name = "ansi_stripper")]
 impl TransformConfig for AnsiStripperConfig {
-    async fn build(&self, _globals: &GlobalOptions) -> Result<Transform> {
+    async fn build(&self, _globals: &GlobalOptions) -> Result<Transform<Event>> {
         let field = self
             .field
             .clone()
@@ -53,7 +53,7 @@ pub struct AnsiStripper {
     field: String,
 }
 
-impl FunctionTransform for AnsiStripper {
+impl FunctionTransform<Event> for AnsiStripper {
     fn transform(&mut self, output: &mut Vec<Event>, mut event: Event) {
         let log = event.as_mut_log();
 

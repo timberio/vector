@@ -150,6 +150,7 @@ mod test {
     };
     use async_trait::async_trait;
     use serde::{Deserialize, Serialize};
+    use vector_core::event::Event;
 
     #[derive(Debug, Serialize, Deserialize)]
     struct MockSourceConfig;
@@ -179,7 +180,7 @@ mod test {
     #[async_trait]
     #[typetag::serde(name = "mock")]
     impl TransformConfig for MockTransformConfig {
-        async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform> {
+        async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
             unimplemented!()
         }
 
@@ -215,9 +216,9 @@ mod test {
     #[test]
     fn glob_expansion() {
         let mut builder = ConfigBuilder::default();
-        builder.add_source("foo1", MockSourceConfig);
-        builder.add_source("foo2", MockSourceConfig);
-        builder.add_source("bar", MockSourceConfig);
+        builder.add_source("foo1", MockSourceConfig, None, None);
+        builder.add_source("foo2", MockSourceConfig, None, None);
+        builder.add_source("bar", MockSourceConfig, None, None);
         builder.add_transform("foos", &["foo*"], MockTransformConfig);
         builder.add_sink("baz", &["foos*", "b*"], MockSinkConfig);
         builder.add_sink("quix", &["*oo*"], MockSinkConfig);

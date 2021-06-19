@@ -163,6 +163,7 @@ mod test {
     use crate::{
         config::{log_schema, GlobalOptions, SinkContext, SourceConfig, SourceContext},
         event::Event,
+        framers::{Framer, NoopFramer},
         shutdown::{ShutdownSignal, SourceShutdownCoordinator},
         sinks::util::{tcp::TcpSinkConfig, EncodedEvent},
         test_util::{
@@ -512,6 +513,7 @@ mod test {
         let server = SocketConfig::from(UdpConfig::from_address(address))
             .build(SourceContext {
                 name: source_name.into(),
+                framing: NoopFramer.build().unwrap(),
                 globals: GlobalOptions::default(),
                 shutdown: shutdown_signal,
                 out: sender,

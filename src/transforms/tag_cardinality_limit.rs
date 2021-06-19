@@ -89,7 +89,7 @@ impl GenerateConfig for TagCardinalityLimitConfig {
 #[async_trait::async_trait]
 #[typetag::serde(name = "tag_cardinality_limit")]
 impl TransformConfig for TagCardinalityLimitConfig {
-    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         Ok(Transform::task(TagCardinalityLimit::new(self.clone())))
     }
 
@@ -252,7 +252,7 @@ impl TagCardinalityLimit {
     }
 }
 
-impl TaskTransform for TagCardinalityLimit {
+impl TaskTransform<Event> for TagCardinalityLimit {
     fn transform(
         self: Box<Self>,
         task: Pin<Box<dyn Stream<Item = Event> + Send>>,

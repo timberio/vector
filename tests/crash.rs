@@ -71,6 +71,8 @@ async fn test_sink_panic() {
     config.add_source(
         "in",
         sources::socket::SocketConfig::make_basic_tcp_config(in_addr),
+        None,
+        None,
     );
     config.add_sink(
         "out",
@@ -157,6 +159,8 @@ async fn test_sink_error() {
     config.add_source(
         "in",
         sources::socket::SocketConfig::make_basic_tcp_config(in_addr),
+        None,
+        None,
     );
     config.add_sink(
         "out",
@@ -218,8 +222,10 @@ async fn test_source_error() {
     config.add_source(
         "in",
         sources::socket::SocketConfig::make_basic_tcp_config(in_addr),
+        None,
+        None,
     );
-    config.add_source("error", ErrorSourceConfig);
+    config.add_source("error", ErrorSourceConfig, None, None);
     config.add_sink(
         "out",
         &["in", "error"],
@@ -279,8 +285,10 @@ async fn test_source_panic() {
     config.add_source(
         "in",
         sources::socket::SocketConfig::make_basic_tcp_config(in_addr),
+        None,
+        None,
     );
-    config.add_source("panic", PanicSourceConfig);
+    config.add_source("panic", PanicSourceConfig, None, None);
     config.add_sink(
         "out",
         &["in", "panic"],

@@ -1,8 +1,9 @@
 #[cfg(feature = "api")]
 use super::api;
 use super::{
-    compiler, default_data_dir, provider, Config, GlobalOptions, HealthcheckOptions, SinkConfig,
-    SinkOuter, SourceConfig, SourceOuter, TestDefinition, TransformConfig, TransformOuter,
+    codec::CodecsConfig, compiler, default_data_dir, framing::FramingsConfig, provider, Config,
+    GlobalOptions, HealthcheckOptions, SinkConfig, SinkOuter, SourceConfig, SourceOuter,
+    TestDefinition, TransformConfig, TransformOuter,
 };
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -71,8 +72,19 @@ impl ConfigBuilder {
         compiler::compile(self)
     }
 
-    pub fn add_source<S: SourceConfig + 'static, T: Into<String>>(&mut self, name: T, source: S) {
-        self.sources.insert(name.into(), SourceOuter::new(source));
+    pub fn add_source<S: SourceConfig + 'static, T: Into<String>>(
+        &mut self,
+        name: T,
+        source: S,
+        framing: Option<FramingsConfig>,
+        codec: Option<CodecsConfig>,
+    ) {
+        let source = SourceOuter::new(
+            framing.unwrap_or_default(),
+            codec.unwrap_or_default(),
+            source,
+        );
+        self.sources.insert(name.into(), source);
     }
 
     pub fn add_sink<S: SinkConfig + 'static, T: Into<String>>(

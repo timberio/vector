@@ -30,7 +30,7 @@ impl_generate_config_from_default!(TokenizerConfig);
 #[async_trait::async_trait]
 #[typetag::serde(name = "tokenizer")]
 impl TransformConfig for TokenizerConfig {
-    async fn build(&self, globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         let field = self
             .field
             .clone()
@@ -94,7 +94,7 @@ impl Tokenizer {
     }
 }
 
-impl FunctionTransform for Tokenizer {
+impl FunctionTransform<Event> for Tokenizer {
     fn transform(&mut self, output: &mut Vec<Event>, mut event: Event) {
         let value = event.as_log().get(&self.field).map(|s| s.to_string_lossy());
 

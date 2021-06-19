@@ -39,7 +39,7 @@ impl GenerateConfig for AddTagsConfig {
 #[async_trait::async_trait]
 #[typetag::serde(name = "add_tags")]
 impl TransformConfig for AddTagsConfig {
-    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         Ok(Transform::function(AddTags::new(
             self.tags.clone(),
             self.overwrite,
@@ -65,7 +65,7 @@ impl AddTags {
     }
 }
 
-impl FunctionTransform for AddTags {
+impl FunctionTransform<Event> for AddTags {
     fn transform(&mut self, output: &mut Vec<Event>, mut event: Event) {
         if !self.tags.is_empty() {
             let metric = event.as_mut_metric();

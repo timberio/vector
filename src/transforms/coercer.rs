@@ -27,7 +27,7 @@ impl_generate_config_from_default!(CoercerConfig);
 #[async_trait::async_trait]
 #[typetag::serde(name = "coercer")]
 impl TransformConfig for CoercerConfig {
-    async fn build(&self, globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         let timezone = self.timezone.unwrap_or(globals.timezone);
         let types = parse_conversion_map(&self.types, timezone)?;
         Ok(Transform::function(Coercer {
@@ -55,7 +55,7 @@ pub struct Coercer {
     drop_unspecified: bool,
 }
 
-impl FunctionTransform for Coercer {
+impl FunctionTransform<Event> for Coercer {
     fn transform(&mut self, output: &mut Vec<Event>, event: Event) {
         let mut log = event.into_log();
 

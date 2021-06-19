@@ -64,7 +64,7 @@ impl GenerateConfig for WasmConfig {
 #[async_trait::async_trait]
 #[typetag::serde(name = "wasm")]
 impl TransformConfig for WasmConfig {
-    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         Ok(Transform::task(Wasm::new(self.clone())?))
     }
 
@@ -94,7 +94,7 @@ impl Wasm {
     }
 }
 
-impl TaskTransform for Wasm {
+impl TaskTransform<Event> for Wasm {
     fn transform(
         self: Box<Self>,
         task: Pin<Box<dyn Stream<Item = Event> + Send>>,

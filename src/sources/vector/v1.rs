@@ -118,6 +118,7 @@ mod test {
             metric::{MetricKind, MetricValue},
             Metric,
         },
+        framers::{Framer, NoopFramer},
         sinks::vector::v1::VectorConfig as SinkConfig,
         test_util::{collect_ready, next_addr, trace_init, wait_for_tcp},
         tls::{TlsConfig, TlsOptions},
@@ -229,6 +230,7 @@ mod test {
         let server = config
             .build(SourceContext {
                 name: "default".into(),
+                framing: NoopFramer.build().unwrap(),
                 globals: GlobalOptions::default(),
                 shutdown,
                 out: tx,
@@ -266,6 +268,7 @@ mod test {
         let server = config
             .build(SourceContext {
                 name: "default".into(),
+                framing: NoopFramer.build().unwrap(),
                 globals: GlobalOptions::default(),
                 shutdown,
                 out: tx,

@@ -31,7 +31,7 @@ impl_generate_config_from_default!(SplitConfig);
 #[async_trait::async_trait]
 #[typetag::serde(name = "split")]
 impl TransformConfig for SplitConfig {
-    async fn build(&self, globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         let field = self
             .field
             .clone()
@@ -99,7 +99,7 @@ impl Split {
     }
 }
 
-impl FunctionTransform for Split {
+impl FunctionTransform<Event> for Split {
     fn transform(&mut self, output: &mut Vec<Event>, mut event: Event) {
         let value = event.as_log().get(&self.field).map(|s| s.to_string_lossy());
 

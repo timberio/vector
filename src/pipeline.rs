@@ -26,7 +26,7 @@ pub struct Pipeline {
     inner: mpsc::Sender<Event>,
     // We really just keep this around in case we need to rebuild.
     #[derivative(Debug = "ignore")]
-    inlines: Vec<Box<dyn FunctionTransform>>,
+    inlines: Vec<Box<dyn FunctionTransform<Event>>>,
     enqueued: VecDeque<Event>,
 }
 
@@ -126,7 +126,7 @@ impl Pipeline {
 
     pub fn new_with_buffer(
         n: usize,
-        inlines: Vec<Box<dyn FunctionTransform>>,
+        inlines: Vec<Box<dyn FunctionTransform<Event>>>,
     ) -> (Self, mpsc::Receiver<Event>) {
         let (tx, rx) = mpsc::channel(n);
         (Self::from_sender(tx, inlines), rx)
@@ -134,7 +134,7 @@ impl Pipeline {
 
     pub fn from_sender(
         inner: mpsc::Sender<Event>,
-        inlines: Vec<Box<dyn FunctionTransform>>,
+        inlines: Vec<Box<dyn FunctionTransform<Event>>>,
     ) -> Self {
         Self {
             inner,

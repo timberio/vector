@@ -30,7 +30,7 @@ impl GenerateConfig for FilterConfig {
 #[async_trait::async_trait]
 #[typetag::serde(name = "filter")]
 impl TransformConfig for FilterConfig {
-    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         Ok(Transform::function(Filter::new(self.condition.build()?)))
     }
 
@@ -60,7 +60,7 @@ impl Filter {
     }
 }
 
-impl FunctionTransform for Filter {
+impl FunctionTransform<Event> for Filter {
     fn transform(&mut self, output: &mut Vec<Event>, event: Event) {
         if self.condition.check(&event) {
             output.push(event);

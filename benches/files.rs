@@ -47,7 +47,7 @@ fn benchmark_files_no_partitions(c: &mut Criterion) {
                 source.data_dir = Some(data_dir);
 
                 let mut config = config::Config::builder();
-                config.add_source("in", source);
+                config.add_source("in", source, None, None);
                 config.add_sink(
                     "out",
                     &["in"],

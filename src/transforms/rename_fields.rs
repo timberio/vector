@@ -34,7 +34,7 @@ impl GenerateConfig for RenameFieldsConfig {
 #[async_trait::async_trait]
 #[typetag::serde(name = "rename_fields")]
 impl TransformConfig for RenameFieldsConfig {
-    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         let mut fields = IndexMap::default();
         for (key, value) in self.fields.clone().all_fields() {
             fields.insert(key.to_string(), value.to_string());
@@ -64,7 +64,7 @@ impl RenameFields {
     }
 }
 
-impl FunctionTransform for RenameFields {
+impl FunctionTransform<Event> for RenameFields {
     fn transform(&mut self, output: &mut Vec<Event>, mut event: Event) {
         for (old_key, new_key) in &self.fields {
             let log = event.as_mut_log();

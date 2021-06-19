@@ -25,7 +25,7 @@ pub const MULTILINE_TAG: &str = "multiline_tag";
 #[derivative(Debug)]
 pub struct Cri {
     #[derivative(Debug = "ignore")]
-    regex_parser: Box<dyn FunctionTransform>,
+    regex_parser: Box<dyn FunctionTransform<Event>>,
 }
 
 impl Cri {
@@ -51,7 +51,7 @@ impl Cri {
     }
 }
 
-impl FunctionTransform for Cri {
+impl FunctionTransform<Event> for Cri {
     fn transform(&mut self, output: &mut Vec<Event>, event: Event) {
         let mut buf = Vec::with_capacity(1);
         self.regex_parser.transform(&mut buf, event);

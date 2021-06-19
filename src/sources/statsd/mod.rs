@@ -303,7 +303,7 @@ mod test {
         let out_addr = next_addr();
 
         let mut config = config::Config::builder();
-        config.add_source("in", statsd_config);
+        config.add_source("in", statsd_config, None, None);
         config.add_sink(
             "out",
             &["in"],

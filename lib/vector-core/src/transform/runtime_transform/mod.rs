@@ -65,7 +65,7 @@ enum Message {
     Timer(Timer),
 }
 
-impl<T> TaskTransform for T
+impl<T> TaskTransform<Event> for T
 where
     T: RuntimeTransform + Send,
 {

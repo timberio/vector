@@ -110,7 +110,7 @@ impl_generate_config_from_default!(Ec2Metadata);
 #[async_trait::async_trait]
 #[typetag::serde(name = "aws_ec2_metadata")]
 impl TransformConfig for Ec2Metadata {
-    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform> {
+    async fn build(&self, _globals: &GlobalOptions) -> crate::Result<Transform<Event>> {
         let (read, write) = evmap::new();
 
         // Check if the namespace is set to `""` which should mean that we do
@@ -171,7 +171,7 @@ impl TransformConfig for Ec2Metadata {
     }
 }
 
-impl TaskTransform for Ec2MetadataTransform {
+impl TaskTransform<Event> for Ec2MetadataTransform {
     fn transform(
         self: Box<Self>,
         task: Pin<Box<dyn Stream<Item = Event> + Send>>,
