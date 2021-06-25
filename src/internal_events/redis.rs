@@ -2,6 +2,22 @@ use super::InternalEvent;
 use metrics::counter;
 
 #[derive(Debug)]
+pub struct RedisEventReceived {
+    pub byte_size: usize,
+}
+
+impl InternalEvent for RedisEventReceived {
+    fn emit_logs(&self) {
+        trace!(message = "Received one event.", rate_limit_secs = 10);
+    }
+
+    fn emit_metrics(&self) {
+        counter!("events_in_total", 1);
+        counter!("processed_bytes_total", self.byte_size as u64);
+    }
+}
+
+#[derive(Debug)]
 pub struct RedisReceiveEventFailed {
     pub error: redis::RedisError,
 }
@@ -16,7 +32,7 @@ impl InternalEvent for RedisReceiveEventFailed {
     }
 
     fn emit_metrics(&self) {
-        counter!("receive_event_errors_total", 1);
+        counter!("processing_errors_total", 1);
     }
 }
 
@@ -32,7 +48,6 @@ impl InternalEvent for RedisEventSent {
     }
 
     fn emit_metrics(&self) {
-        counter!("processed_events_total", self.count as u64);
         counter!("processed_bytes_total", self.byte_size as u64);
     }
 }
