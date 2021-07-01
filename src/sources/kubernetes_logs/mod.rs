@@ -24,7 +24,7 @@ use file_source::{
     Checkpointer, FileServer, FileServerShutdown, FingerprintStrategy, Fingerprinter, Line,
     ReadFrom,
 };
-use k8s_openapi::api::core::v1::Pod;
+use k8s_openapi::api::core::v1::{Namespace, Pod};
 use serde::{Deserialize, Serialize};
 use shared::TimeZone;
 use std::convert::TryInto;
@@ -33,6 +33,7 @@ use std::time::Duration;
 
 mod k8s_paths_provider;
 mod lifecycle;
+mod namespace_metadata_annotator;
 mod parser;
 mod partial_events_merger;
 mod path_helpers;
@@ -43,6 +44,7 @@ mod util;
 use futures::{future::FutureExt, sink::Sink, stream::StreamExt};
 use k8s_paths_provider::K8sPathsProvider;
 use lifecycle::Lifecycle;
+use namespace_metadata_annotator::NamespaceMetadataAnnotator;
 use pod_metadata_annotator::PodMetadataAnnotator;
 
 /// The key we use for `file` field.
@@ -243,7 +245,8 @@ impl Source {
             timezone,
         } = self;
 
-        let watcher = k8s::api_watcher::ApiWatcher::new(client, Pod::watch_pod_for_all_namespaces);
+        let watcher =
+            k8s::api_watcher::ApiWatcher::new(client.clone(), Pod::watch_pod_for_all_namespaces);
         let watcher = k8s::instrumenting_watcher::InstrumentingWatcher::new(watcher);
         let (state_reader, state_writer) = evmap::new();
         let state_writer =
@@ -263,6 +266,32 @@ impl Source {
 
         let paths_provider = K8sPathsProvider::new(state_reader.clone(), exclude_paths);
         let annotator = PodMetadataAnnotator::new(state_reader, fields_spec);
+
+        // -----------------------------------------------------------------
+
+        let ns_watcher =
+            k8s::api_watcher::ApiWatcher::new(client.clone(), Namespace::watch_namespace);
+        let ns_watcher = k8s::instrumenting_watcher::InstrumentingWatcher::new(ns_watcher);
+        let (ns_state_reader, ns_state_writer) = evmap::new();
+        let ns_state_writer =
+            k8s::state::evmap::Writer::new(ns_state_writer, Some(Duration::from_millis(10)));
+        let ns_state_writer = k8s::state::instrumenting::Writer::new(ns_state_writer);
+        let ns_state_writer =
+            k8s::state::delayed_delete::Writer::new(ns_state_writer, Duration::from_secs(60));
+
+        let mut ns_reflector = k8s::reflector::Reflector::new(
+            ns_watcher,
+            ns_state_writer,
+            None,
+            None,
+            Duration::from_secs(1),
+        );
+        let ns_reflector_process = ns_reflector.run();
+
+        let ns_annotator = NamespaceMetadataAnnotator::new(
+            ns_state_reader,
+            namespace_metadata_annotator::FieldsSpec::default(),
+        );
 
         // TODO: maybe more of the parameters have to be configurable.
 
@@ -350,6 +379,8 @@ impl Source {
                 emit!(KubernetesLogsEventAnnotationFailed { event: &event });
             }
 
+            ns_annotator.annotate(&mut event, file_info.unwrap());
+
             checkpoints.update(line.file_id, line.offset);
             event
         });
@@ -372,6 +403,17 @@ impl Source {
                     Ok(()) => info!(message = "Reflector process completed gracefully."),
                     Err(error) => {
                         error!(message = "Reflector process exited with an error.", %error)
+                    }
+                });
+            slot.bind(Box::pin(fut));
+        }
+        {
+            let (slot, shutdown) = lifecycle.add();
+            let fut =
+                util::cancel_on_signal(ns_reflector_process, shutdown).map(|result| match result {
+                    Ok(()) => info!(message = "Namespace reflector process completed gracefully."),
+                    Err(error) => {
+                        error!(message = "Namespace reflector process exited with an error.", %error)
                     }
                 });
             slot.bind(Box::pin(fut));
