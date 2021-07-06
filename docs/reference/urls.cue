@@ -117,6 +117,7 @@ urls: {
 	datadog_logs_endpoints:                                   "\(datadog_docs)/logs/log_collection/?tab=http#datadog-logs-endpoints"
 	datadog_metrics:                                          "\(datadog_docs)/metrics/"
 	datadog_metrics_endpoints:                                "\(datadog_docs)/api/v1/metrics/"
+	datadog_tags:                                             "\(datadog_docs)/getting_started/tagging/"
 	date:                                                     "https://man7.org/linux/man-pages/man1/date.1.html"
 	debian:                                                   "https://www.debian.org/"
 	debian_system_groups:                                     "https://wiki.debian.org/SystemGroups"

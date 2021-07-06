@@ -3,6 +3,13 @@ package metadata
 components: sinks: datadog_logs: {
 	title: "Datadog Logs"
 
+	description: """
+		Sends data to the [Datadog logs service](\(urls.datadog_logs)). The Datadog platform can leverage specifics fields (namely `ddtags`, `ddsource` and `service`) to further categorize
+		and filter logs. For further details on the purpose of those fields please check the [official Datadog documentation](\(urls.datadog_tags)).
+		The source (`ddsource` field) and service (`service` field) are expected to be plain text values. The list of tags (The `ddtags` field) should
+		be a single string of coma separated tags, e.g. `tag1:val1,tag2:val2,tag3:val3`.
+		"""
+
 	classes: sinks._datadog.classes
 
 	features: {
