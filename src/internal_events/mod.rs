@@ -5,6 +5,8 @@ mod add_fields;
 mod add_tags;
 mod aggregate;
 mod ansi_stripper;
+#[cfg(any(feature = "sources-amqp", feature = "sinks-amqp"))]
+mod amqp;
 #[cfg(feature = "sources-apache_metrics")]
 mod apache_metrics;
 #[cfg(feature = "api")]
@@ -141,6 +143,8 @@ pub use self::adaptive_concurrency::*;
 pub use self::add_fields::*;
 pub use self::add_tags::*;
 pub use self::aggregate::*;
+#[cfg(feature = "sources-amqp")]
+pub use self::amqp::*;
 pub use self::ansi_stripper::*;
 #[cfg(feature = "sources-apache_metrics")]
 pub use self::apache_metrics::*;

@@ -3,6 +3,8 @@ use snafu::Snafu;
 
 pub mod util;
 
+#[cfg(feature = "sinks-amqp")]
+pub mod amqp;
 #[cfg(feature = "sinks-aws_cloudwatch_logs")]
 pub mod aws_cloudwatch_logs;
 #[cfg(feature = "sinks-aws_cloudwatch_metrics")]

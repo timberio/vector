@@ -173,6 +173,10 @@ goauth = { version = "0.10.0", default-features = false, optional = true }
 gouth = { version = "0.2.1", default-features = false, optional = true }
 smpl_jwt = { version = "0.6.1", default-features = false, optional = true }
 
+# Amqp
+lapin = { version = "1.7.1", default-features = false, optional = true }
+tokio-amqp = { version = "1.0", default-features = false, optional = true }
+
 # API
 async-graphql = { version = "=2.6.4", default-features = false, optional = true, features = ["chrono"] }
 async-graphql-warp = { version = "=2.6.4", default-features = false, optional = true }
@@ -223,7 +227,7 @@ http = { version = "0.2.4", default-features = false }
 hyper = { version = "0.14.9", default-features = false, features = ["stream"] }
 hyper-openssl = { version = "0.9.1", default-features = false }
 infer = { version = "0.5.0", default-features = false, optional = true}
-indexmap = { version = "1.7.0", default-features = false, features = ["serde"] }
+indexmap = { version = "=1.6.2", default-features = false, features = ["serde"] }
 indoc = { version = "1.0.3", default-features = false }
 inventory = { version = "0.1.10", default-features = false }
 k8s-openapi = { version = "0.12.0", default-features = true, features = ["api", "v1_16"], optional = true }
@@ -399,6 +403,7 @@ api-client = [
 # Sources
 sources = ["sources-logs", "sources-metrics"]
 sources-logs = [
+  "sources-amqp",
   "sources-aws_kinesis_firehose",
   "sources-aws_s3",
   "sources-datadog",
@@ -434,6 +439,7 @@ sources-metrics = [
   "sources-vector",
 ]
 
+sources-amqp = ["lapin", "tokio-amqp"]
 sources-apache_metrics = []
 sources-aws_ecs_metrics = []
 sources-aws_kinesis_firehose = ["base64", "infer", "sources-utils-tls", "warp"]
@@ -551,6 +557,7 @@ transforms-wasm = ["wasm"]
 # Sinks
 sinks = ["sinks-logs", "sinks-metrics"]
 sinks-logs = [
+  "sinks-amqp",
   "sinks-aws_cloudwatch_logs",
   "sinks-aws_kinesis_firehose",
   "sinks-aws_kinesis_streams",
@@ -596,6 +603,7 @@ sinks-metrics = [
   "sinks-vector",
 ]
 
+sinks-amqp = ["lapin", "tokio-amqp"]
 sinks-aws_cloudwatch_logs = ["rusoto", "rusoto_logs"]
 sinks-aws_cloudwatch_metrics = ["rusoto", "rusoto_cloudwatch"]
 sinks-aws_kinesis_firehose = ["rusoto", "rusoto_firehose"]
@@ -636,6 +644,7 @@ nightly = []
 
 # Testing-related features
 all-integration-tests = [
+  "amqp-integration-tests",
   "aws-integration-tests",
   "clickhouse-integration-tests",
   "docker-logs-integration-tests",
@@ -660,6 +669,8 @@ all-integration-tests = [
   "splunk-integration-tests",
   "dnstap-integration-tests",
 ]
+
+amqp-integration-tests = ["sources-amqp", "sinks-amqp"]
 
 aws-integration-tests = [
   "aws-cloudwatch-logs-integration-tests",
