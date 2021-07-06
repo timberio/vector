@@ -5,7 +5,7 @@ components: sinks: console: {
 
 	classes: {
 		commonly_used: false
-		delivery:      "at_least_once"
+		delivery:      "best_effort"
 		development:   "stable"
 		egress_method: "stream"
 		service_providers: []

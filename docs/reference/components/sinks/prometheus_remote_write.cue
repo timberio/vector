@@ -5,7 +5,7 @@ components: sinks: prometheus_remote_write: {
 
 	classes: {
 		commonly_used: true
-		delivery:      "at_least_once"
+		delivery:      "best_effort"
 		development:   "beta"
 		egress_method: "batch"
 		service_providers: []

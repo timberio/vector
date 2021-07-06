@@ -5,7 +5,7 @@ components: sinks: influxdb_metrics: {
 
 	classes: {
 		commonly_used: false
-		delivery:      "at_least_once"
+		delivery:      "best_effort"
 		development:   "stable"
 		egress_method: "batch"
 		service_providers: ["InfluxData"]

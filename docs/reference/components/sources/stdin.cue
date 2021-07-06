@@ -5,7 +5,7 @@ components: sources: stdin: {
 
 	classes: {
 		commonly_used: false
-		delivery:      "at_least_once"
+		delivery:      "best_effort"
 		deployment_roles: ["sidecar"]
 		development:   "stable"
 		egress_method: "stream"

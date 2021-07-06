@@ -7,7 +7,7 @@ components: sources: aws_kinesis_firehose: {
 
 	classes: {
 		commonly_used: false
-		delivery:      "at_least_once"
+		delivery:      "best_effort"
 		deployment_roles: ["aggregator"]
 		development:   "beta"
 		egress_method: "batch"

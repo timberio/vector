@@ -5,7 +5,7 @@ components: sinks: aws_cloudwatch_logs: components._aws & {
 
 	classes: {
 		commonly_used: true
-		delivery:      "at_least_once"
+		delivery:      "best_effort"
 		development:   "stable"
 		egress_method: "batch"
 		service_providers: ["AWS"]

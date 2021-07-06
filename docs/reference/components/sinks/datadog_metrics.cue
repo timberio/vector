@@ -3,7 +3,9 @@ package metadata
 components: sinks: datadog_metrics: {
 	title: "Datadog Metrics"
 
-	classes: sinks._datadog.classes
+	classes: sinks._datadog.classes & {
+		delivery: "at_least_once"
+	}
 
 	features: {
 		buffer: enabled:      false

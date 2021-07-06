@@ -5,7 +5,7 @@ components: sinks: aws_sqs: components._aws & {
 
 	classes: {
 		commonly_used: false
-		delivery:      "at_least_once"
+		delivery:      "best_effort"
 		development:   "beta"
 		egress_method: "stream"
 		service_providers: ["AWS"]

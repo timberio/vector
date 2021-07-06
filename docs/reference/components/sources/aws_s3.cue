@@ -15,7 +15,7 @@ components: sources: aws_s3: components._aws & {
 	classes: {
 		commonly_used: true
 		deployment_roles: ["aggregator"]
-		delivery:      "at_least_once"
+		delivery:      "best_effort"
 		development:   "beta"
 		egress_method: "stream"
 		stateful:      false

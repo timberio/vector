@@ -6,7 +6,7 @@ components: sources: internal_logs: {
 
 	classes: {
 		commonly_used: true
-		delivery:      "at_least_once"
+		delivery:      "best_effort"
 		deployment_roles: ["aggregator", "daemon", "sidecar"]
 		development:   "beta"
 		egress_method: "stream"

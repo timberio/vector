@@ -11,7 +11,7 @@ components: sources: host_metrics: {
 
 	classes: {
 		commonly_used: false
-		delivery:      "at_least_once"
+		delivery:      "best_effort"
 		deployment_roles: ["daemon"]
 		development:   "beta"
 		egress_method: "batch"
