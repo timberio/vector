@@ -164,7 +164,7 @@ impl NewRelicLogsConfig {
             encoding: EncodingConfig::<Encoding>::from(self.encoding.clone()).into_encoding(),
             batch,
             request,
-
+            proxy: None,
             tls: None,
         })
     }
