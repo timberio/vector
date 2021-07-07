@@ -222,6 +222,7 @@ hostname = { version = "0.3.1", default-features = false }
 http = { version = "0.2.4", default-features = false }
 hyper = { version = "0.14.10", default-features = false, features = ["stream"] }
 hyper-openssl = { version = "0.9.1", default-features = false }
+hyper-proxy = { version = "0.9.1", default-features = false, features = ["openssl-tls"] }
 infer = { version = "0.5.0", default-features = false, optional = true}
 indexmap = { version = "1.7.0", default-features = false, features = ["serde"] }
 indoc = { version = "1.0.3", default-features = false }

@@ -1,18 +1,17 @@
 use crate::{
+    config::ProxyConfig,
     internal_events::http_client,
     tls::{tls_connector_builder, MaybeTlsSettings, TlsError},
 };
 use futures::future::BoxFuture;
 use headers::{Authorization, HeaderMapExt};
-use http::header::HeaderValue;
-use http::request::Builder;
-use http::HeaderMap;
-use http::Request;
+use http::{header::HeaderValue, request::Builder, uri::InvalidUri, HeaderMap, Request};
 use hyper::{
     body::{Body, HttpBody},
     client::{Client, HttpConnector},
 };
 use hyper_openssl::HttpsConnector;
+use hyper_proxy::ProxyConnector;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use std::{
@@ -28,6 +27,8 @@ pub enum HttpError {
     BuildTlsConnector { source: TlsError },
     #[snafu(display("Failed to build HTTPS connector: {}", source))]
     MakeHttpsConnector { source: openssl::error::ErrorStack },
+    #[snafu(display("Failed to build Proxy connector: {}", source))]
+    MakeProxyConnector { source: InvalidUri },
     #[snafu(display("Failed to make HTTP(S) request: {}", source))]
     CallRequest { source: hyper::Error },
 }
@@ -35,7 +36,7 @@ pub enum HttpError {
 pub type HttpClientFuture = <HttpClient as Service<http::Request<Body>>>::Future;
 
 pub struct HttpClient<B = Body> {
-    client: Client<HttpsConnector<HttpConnector>, B>,
+    client: Client<ProxyConnector<HttpsConnector<HttpConnector>>, B>,
     user_agent: HeaderValue,
 }
 
@@ -46,6 +47,13 @@ where
     B::Error: Into<crate::Error>,
 {
     pub fn new(tls_settings: impl Into<MaybeTlsSettings>) -> Result<HttpClient<B>, HttpError> {
+        Self::new_with_proxy(tls_settings, ProxyConfig::default())
+    }
+
+    pub fn new_with_proxy(
+        tls_settings: impl Into<MaybeTlsSettings>,
+        proxy_config: ProxyConfig,
+    ) -> Result<HttpClient<B>, HttpError> {
         let mut http = HttpConnector::new();
         http.enforce_http(false);
 
@@ -62,7 +70,11 @@ where
             Ok(())
         });
 
-        let client = Client::builder().build(https);
+        let mut proxy = ProxyConnector::new(https).unwrap();
+        proxy_config
+            .configure(&mut proxy)
+            .context(MakeProxyConnector)?;
+        let client = Client::builder().build(proxy);
 
         let version = crate::get_version();
         let user_agent = HeaderValue::from_str(&format!("Vector/{}", version))
