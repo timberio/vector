@@ -375,11 +375,21 @@ impl Source {
                 byte_size,
                 pod_name: file_info.as_ref().map(|info| info.pod_name),
             });
+
+            if file_info.is_some() {
+              let pod_namespace = file_info.as_ref().map(|info| info.pod_namespace);
+              match pod_namespace {
+                Some(name) => {
+                  ns_annotator.annotate(&mut event, name);
+                }
+                None => {
+                  emit!(KubernetesLogsEventAnnotationFailed { event: &event });
+                }
+              }
+            }
             if file_info.is_none() {
                 emit!(KubernetesLogsEventAnnotationFailed { event: &event });
             }
-
-            ns_annotator.annotate(&mut event, file_info.unwrap());
 
             checkpoints.update(line.file_id, line.offset);
             event

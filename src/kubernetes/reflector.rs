@@ -192,6 +192,7 @@ where
 
     /// Translate received watch event to the state update.
     async fn process_event(&mut self, event: WatchEvent<<W as Watcher>::Object>) {
+        println!("{:?}", &event);
         match event {
             WatchEvent::Added(object) => {
                 trace!(message = "Got an object event.", event = "added");

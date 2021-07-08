@@ -2,16 +2,12 @@
 
 #![deny(missing_docs)]
 
-use super::path_helpers::LogFileInfo;
 use crate::{
     event::{Event, LogEvent, PathComponent, PathIter},
     kubernetes as k8s,
 };
 use evmap::ReadHandle;
-use k8s_openapi::{
-    api::core::v1::Namespace,
-    apimachinery::pkg::apis::meta::v1::ObjectMeta,
-};
+use k8s_openapi::{api::core::v1::Namespace, apimachinery::pkg::apis::meta::v1::ObjectMeta};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -50,9 +46,12 @@ impl NamespaceMetadataAnnotator {
 impl NamespaceMetadataAnnotator {
     /// Annotates an event with the information from the [`Namespace::metadata`].
     /// The event has to have a [`POD_NAMESPACE`] field set.
-    pub fn annotate<'a>(&self, event: &mut Event, file_info: LogFileInfo) {
+    pub fn annotate<'a>(&self, event: &mut Event, pod_namespace: &str) {
         let log = event.as_mut_log();
-        let guard = self.namespace_state_reader.get(file_info.pod_namespace).unwrap();
+        let guard = self
+            .namespace_state_reader
+            .get(pod_namespace)
+            .expect("pod_namespace not found in state");
         let entry = guard.get_one().unwrap();
         let namespace: &Namespace = entry.as_ref();
 
