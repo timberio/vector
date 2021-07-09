@@ -11,6 +11,7 @@ use crate::internal_events::{
     KubernetesLogsEventReceived,
 };
 use crate::kubernetes as k8s;
+use crate::kubernetes::hash_value::HashKey;
 use crate::{
     config::{
         DataType, GenerateConfig, GlobalOptions, SourceConfig, SourceContext, SourceDescription,
@@ -250,7 +251,7 @@ impl Source {
         let watcher = k8s::instrumenting_watcher::InstrumentingWatcher::new(watcher);
         let (state_reader, state_writer) = evmap::new();
         let state_writer =
-            k8s::state::evmap::Writer::new(state_writer, Some(Duration::from_millis(10)));
+            k8s::state::evmap::Writer::new(state_writer, Some(Duration::from_millis(10)), HashKey::Uid);
         let state_writer = k8s::state::instrumenting::Writer::new(state_writer);
         let state_writer =
             k8s::state::delayed_delete::Writer::new(state_writer, Duration::from_secs(60));
@@ -273,8 +274,11 @@ impl Source {
             k8s::api_watcher::ApiWatcher::new(client.clone(), Namespace::watch_namespace);
         let ns_watcher = k8s::instrumenting_watcher::InstrumentingWatcher::new(ns_watcher);
         let (ns_state_reader, ns_state_writer) = evmap::new();
-        let ns_state_writer =
-            k8s::state::evmap::Writer::new(ns_state_writer, Some(Duration::from_millis(10)));
+        let ns_state_writer = k8s::state::evmap::Writer::new(
+            ns_state_writer,
+            Some(Duration::from_millis(10)),
+            HashKey::Namespace,
+        );
         let ns_state_writer = k8s::state::instrumenting::Writer::new(ns_state_writer);
         let ns_state_writer =
             k8s::state::delayed_delete::Writer::new(ns_state_writer, Duration::from_secs(60));
@@ -377,15 +381,15 @@ impl Source {
             });
 
             if file_info.is_some() {
-              let pod_namespace = file_info.as_ref().map(|info| info.pod_namespace);
-              match pod_namespace {
-                Some(name) => {
-                  ns_annotator.annotate(&mut event, name);
+                let pod_namespace = file_info.as_ref().map(|info| info.pod_namespace);
+                match pod_namespace {
+                    Some(name) => {
+                        ns_annotator.annotate(&mut event, name);
+                    }
+                    None => {
+                        emit!(KubernetesLogsEventAnnotationFailed { event: &event });
+                    }
                 }
-                None => {
-                  emit!(KubernetesLogsEventAnnotationFailed { event: &event });
-                }
-              }
             }
             if file_info.is_none() {
                 emit!(KubernetesLogsEventAnnotationFailed { event: &event });

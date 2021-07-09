@@ -12,6 +12,12 @@ use super::pod_manager_logic::extract_static_pod_config_hashsum;
 #[derive(Debug)]
 pub struct HashValue<T: Metadata<Ty = ObjectMeta>>(T);
 
+#[derive(Clone, Copy)]
+pub enum HashKey {
+    Uid,
+    Namespace,
+}
+
 impl<T> HashValue<T>
 where
     T: Metadata<Ty = ObjectMeta>,
@@ -33,6 +39,12 @@ where
             return Some(config_hashsum);
         }
         Some(metadata.uid.as_ref()?.as_str())
+    }
+
+    /// Get the `namespace` from the `T`'s [`Metadata`] (if any).
+    pub fn namespace(&self) -> Option<&str> {
+        let metadata = self.0.metadata();
+        Some(metadata.namespace.as_ref()?.as_str())
     }
 }
 
