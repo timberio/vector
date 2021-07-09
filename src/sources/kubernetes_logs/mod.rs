@@ -8,7 +8,7 @@
 use crate::event::{Event, LogEvent};
 use crate::internal_events::{
     FileSourceInternalEventsEmitter, KubernetesLogsEventAnnotationFailed,
-    KubernetesLogsEventReceived,
+    KubernetesLogsEventNamespaceAnnotationFailed, KubernetesLogsEventReceived,
 };
 use crate::kubernetes as k8s;
 use crate::kubernetes::hash_value::HashKey;
@@ -277,7 +277,7 @@ impl Source {
         let ns_state_writer = k8s::state::evmap::Writer::new(
             ns_state_writer,
             Some(Duration::from_millis(10)),
-            HashKey::Namespace,
+            HashKey::Name,
         );
         let ns_state_writer = k8s::state::instrumenting::Writer::new(ns_state_writer);
         let ns_state_writer =
@@ -380,19 +380,18 @@ impl Source {
                 pod_name: file_info.as_ref().map(|info| info.pod_name),
             });
 
-            if file_info.is_some() {
-                let pod_namespace = file_info.as_ref().map(|info| info.pod_namespace);
-                match pod_namespace {
-                    Some(name) => {
-                        ns_annotator.annotate(&mut event, name);
-                    }
-                    None => {
-                        emit!(KubernetesLogsEventAnnotationFailed { event: &event });
-                    }
-                }
-            }
             if file_info.is_none() {
                 emit!(KubernetesLogsEventAnnotationFailed { event: &event });
+            } else {
+                let namespace = file_info.as_ref().map(|info| info.pod_namespace);
+
+                if namespace.is_some() {
+                  let ns_info = ns_annotator.annotate(&mut event, namespace.unwrap());
+
+                  if ns_info.is_none() {
+                    emit!(KubernetesLogsEventNamespaceAnnotationFailed { event: &event });
+                  }
+                }
             }
 
             checkpoints.update(line.file_id, line.offset);

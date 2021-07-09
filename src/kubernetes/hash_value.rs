@@ -12,10 +12,14 @@ use super::pod_manager_logic::extract_static_pod_config_hashsum;
 #[derive(Debug)]
 pub struct HashValue<T: Metadata<Ty = ObjectMeta>>(T);
 
+/// Used to determine what [`Metadata`] value should be used as the key
+/// in [`evmap`].
 #[derive(Clone, Copy)]
 pub enum HashKey {
+    /// metadata.uid
     Uid,
-    Namespace,
+    /// meatadata.name
+    Name,
 }
 
 impl<T> HashValue<T>

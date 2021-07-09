@@ -128,7 +128,7 @@ fn kv<T: Metadata<Ty = ObjectMeta>>(object: T, hash_key: HashKey) -> Option<(Str
     let value = Box::new(HashValue::new(object));
     let key = match hash_key {
         HashKey::Uid => value.uid()?.to_owned(),
-        HashKey::Namespace => value.name()?.to_owned(),
+        HashKey::Name => value.name()?.to_owned(),
     };
     Some((key, value))
 }

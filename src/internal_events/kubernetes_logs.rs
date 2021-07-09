@@ -53,6 +53,24 @@ impl InternalEvent for KubernetesLogsEventAnnotationFailed<'_> {
 }
 
 #[derive(Debug)]
+pub struct KubernetesLogsEventNamespaceAnnotationFailed<'a> {
+    pub event: &'a Event,
+}
+
+impl InternalEvent for KubernetesLogsEventNamespaceAnnotationFailed<'_> {
+    fn emit_logs(&self) {
+        warn!(
+            message = "Failed to annotate event with namespace metadata.",
+            event = ?self.event
+        );
+    }
+
+    fn emit_metrics(&self) {
+        counter!("k8s_event_namespace_annotation_failures_total", 1);
+    }
+}
+
+#[derive(Debug)]
 pub struct KubernetesLogsFormatPickerEdgeCase {
     pub what: &'static str,
 }
