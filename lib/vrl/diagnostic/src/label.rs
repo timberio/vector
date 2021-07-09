@@ -1,7 +1,7 @@
 use crate::Span;
 use codespan_reporting::diagnostic;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Label {
     pub message: String,
     pub primary: bool,

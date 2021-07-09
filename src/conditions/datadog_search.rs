@@ -28,7 +28,10 @@ impl ConditionConfig for DatadogSearchConfig {
                 .to_string()
         })?;
 
-        Ok(Box::new(Vrl { program }))
+        Ok(Box::new(Vrl {
+            program,
+            source: self.source.clone(),
+        }))
     }
 }
 

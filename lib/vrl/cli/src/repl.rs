@@ -9,7 +9,7 @@ use rustyline::hint::{Hinter, HistoryHinter};
 use rustyline::validate::{self, ValidationResult, Validator};
 use rustyline::{Context, Editor, Helper};
 use std::borrow::Cow::{self, Borrowed, Owned};
-use vrl::{diagnostic::Formatter, state, value, Runtime, RuntimeResult, Target, Terminate, Value};
+use vrl::{diagnostic::Formatter, state, value, Runtime, Target, Value};
 
 // Create a list of all possible error values for potential docs lookup
 lazy_static! {
@@ -122,7 +122,7 @@ fn resolve(
     runtime: &mut Runtime,
     program: &str,
     state: &mut state::Compiler,
-) -> RuntimeResult {
+) -> Result<Value, String> {
     let mut empty = value!({});
     let object = match object {
         None => &mut empty as &mut dyn Target,
@@ -131,14 +131,12 @@ fn resolve(
 
     let program = match vrl::compile_with_state(program, &stdlib::all(), state) {
         Ok(program) => program,
-        Err(diagnostics) => {
-            return Err(Terminate::Error(
-                Formatter::new(program, diagnostics).colored().to_string(),
-            ))
-        }
+        Err(diagnostics) => return Err(Formatter::new(program, diagnostics).colored().to_string()),
     };
 
-    runtime.resolve(object, &program)
+    runtime
+        .resolve(object, &program)
+        .map_err(|err| err.to_string())
 }
 
 struct Repl {

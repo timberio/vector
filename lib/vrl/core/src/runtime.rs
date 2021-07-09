@@ -18,17 +18,17 @@ pub enum Terminate {
     /// This is an intentional termination that does not result in an
     /// `Ok(Value)` result, but should neither be interpreted as an unexpected
     /// outcome.
-    Abort,
+    Abort(ExpressionError),
 
     /// An unexpected program termination.
-    Error(String),
+    Error(ExpressionError),
 }
 
 impl fmt::Display for Terminate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Terminate::Abort => Ok(()),
-            Terminate::Error(error) => f.write_str(&error),
+            Terminate::Abort(error) => error.fmt(f),
+            Terminate::Error(error) => error.fmt(f),
         }
     }
 }
@@ -54,22 +54,24 @@ impl Runtime {
         match target.get(&LookupBuf::root()) {
             Ok(Some(Value::Object(_))) => {}
             Ok(Some(value)) => {
-                return Err(Terminate::Error(format!(
-                    "target must be a valid object, got {}: {}",
-                    value.kind(),
-                    value
-                )))
+                return Err(Terminate::Error(
+                    format!(
+                        "target must be a valid object, got {}: {}",
+                        value.kind(),
+                        value
+                    )
+                    .into(),
+                ))
             }
             Ok(None) => {
                 return Err(Terminate::Error(
-                    "expected target object, got nothing".to_owned(),
+                    "expected target object, got nothing".to_owned().into(),
                 ))
             }
             Err(err) => {
-                return Err(Terminate::Error(format!(
-                    "error querying target object: {}",
-                    err
-                )))
+                return Err(Terminate::Error(
+                    format!("error querying target object: {}", err).into(),
+                ))
             }
         };
 
@@ -79,8 +81,8 @@ impl Runtime {
             .iter()
             .map(|expr| {
                 expr.resolve(&mut context).map_err(|err| match err {
-                    ExpressionError::Abort => Terminate::Abort,
-                    err @ ExpressionError::Error { .. } => Terminate::Error(err.to_string()),
+                    ExpressionError::Abort { .. } => Terminate::Abort(err),
+                    err @ ExpressionError::Error { .. } => Terminate::Error(err),
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;

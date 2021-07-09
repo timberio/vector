@@ -2,7 +2,7 @@ use crate::Urls;
 use std::convert::Into;
 use std::fmt;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Note {
     Hint(String),
     CoerceValue,

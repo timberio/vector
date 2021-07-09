@@ -186,7 +186,7 @@ fn main() {
                                 || got == want
                             {
                                 println!("{}", Colour::Green.bold().paint("OK"));
-                            } else if err == Terminate::Abort {
+                            } else if matches!(err, Terminate::Abort { .. }) {
                                 let want =
                                     match serde_json::from_str::<'_, serde_json::Value>(&want) {
                                         Ok(want) => want,

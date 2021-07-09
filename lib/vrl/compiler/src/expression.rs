@@ -303,9 +303,11 @@ impl DiagnosticError for Error {
 
 // -----------------------------------------------------------------------------
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ExpressionError {
-    Abort,
+    Abort {
+        span: Span,
+    },
     Error {
         message: String,
         labels: Vec<Label>,
@@ -334,7 +336,7 @@ impl DiagnosticError for ExpressionError {
         use ExpressionError::*;
 
         match self {
-            Abort => "aborted".to_owned(),
+            Abort { .. } => "aborted".to_owned(),
             Error { message, .. } => message.clone(),
         }
     }
@@ -343,7 +345,9 @@ impl DiagnosticError for ExpressionError {
         use ExpressionError::*;
 
         match self {
-            Abort => vec![],
+            Abort { span } => {
+                vec![Label::primary("aborted", span)]
+            }
             Error { labels, .. } => labels.clone(),
         }
     }
@@ -352,7 +356,7 @@ impl DiagnosticError for ExpressionError {
         use ExpressionError::*;
 
         match self {
-            Abort => vec![],
+            Abort { .. } => vec![],
             Error { notes, .. } => notes.clone(),
         }
     }
