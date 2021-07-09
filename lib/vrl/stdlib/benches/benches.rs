@@ -69,6 +69,7 @@ criterion_group!(
               parse_csv,
               parse_duration,
               parse_glog,
+              parse_datadog_grok,
               parse_grok,
               parse_key_value,
               parse_klog,
@@ -1075,6 +1076,22 @@ bench_function! {
             value: "2020-10-02T23:22:12.223222Z info Hello world",
             pattern: "%{TIMESTAMP_ISO8601:timestamp} %{LOGLEVEL:level} %{GREEDYDATA:message}",
             remove_empty: false,
+        ],
+        want: Ok(value!({
+            "timestamp": "2020-10-02T23:22:12.223222Z",
+            "level": "info",
+            "message": "Hello world",
+        })),
+    }
+}
+
+bench_function! {
+    parse_datadog_grok => vrl_stdlib::ParseDatadogGrok;
+
+    simple {
+        args: func_args![
+            value: "2020-10-02T23:22:12.223222Z info Hello world",
+            parsing_rules: vec!["test_rule %{TIMESTAMP_ISO8601:timestamp} %{LOGLEVEL:level} %{GREEDYDATA:message}"],
         ],
         want: Ok(value!({
             "timestamp": "2020-10-02T23:22:12.223222Z",

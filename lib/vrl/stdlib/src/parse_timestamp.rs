@@ -55,7 +55,7 @@ impl Expression for ParseTimestampFn {
                 let bytes = self.format.resolve(ctx)?;
                 let format = bytes.try_bytes_utf8_lossy()?;
                 Conversion::parse(format!("timestamp|{}", format), TimeZone::Local)
-                    .map_err(|e| format!("{}", e))?
+                    .map_err(|e| e.to_string())?
                     .convert(v)
                     .map_err(|e| e.to_string().into())
             }

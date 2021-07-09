@@ -44,6 +44,7 @@ tracing-log = { version = "0.1.2", default-features = false }
 tracing-subscriber = { version = "0.2.19", default-features = false }
 twox-hash = { version = "1.6.0", default-features = false }
 vrl-core = { package = "vrl", path = "../vrl/core", optional = true }
+parsing = { path = "../parsing", features = ["vrl"] }
 
 [build-dependencies]
 prost-build = "0.7.0"
