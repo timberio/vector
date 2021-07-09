@@ -42,9 +42,9 @@ where
     }
 
     /// Get the `namespace` from the `T`'s [`Metadata`] (if any).
-    pub fn namespace(&self) -> Option<&str> {
+    pub fn name(&self) -> Option<&str> {
         let metadata = self.0.metadata();
-        Some(metadata.namespace.as_ref()?.as_str())
+        Some(metadata.name.as_ref()?.as_str())
     }
 }
 
