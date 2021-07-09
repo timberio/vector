@@ -75,6 +75,7 @@ fn kubeconfig_reader(config: &str) -> Result<Config, Error> {
         base,
         token,
         tls_options,
+        proxy: Default::default(),
     })
 }
 

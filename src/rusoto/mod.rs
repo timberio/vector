@@ -1,3 +1,4 @@
+use crate::config::ProxyConfig;
 use crate::{http::HttpError, tls::MaybeTlsSettings};
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -37,7 +38,7 @@ pub type Client = HttpClient<super::http::HttpClient<RusotoBody>>;
 
 pub fn client() -> crate::Result<Client> {
     let settings = MaybeTlsSettings::enable_client()?;
-    let client = super::http::HttpClient::new(settings)?;
+    let client = super::http::HttpClient::new(settings, ProxyConfig::from_env())?;
     Ok(HttpClient { client })
 }
 

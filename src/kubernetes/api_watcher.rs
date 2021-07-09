@@ -262,6 +262,7 @@ mod tests {
                 base: server.base_url().parse().unwrap(),
                 token: Some("SOMEGARBAGETOKEN".to_string()),
                 tls_options: TlsOptions::default(),
+                proxy: Default::default(),
             };
             let client = Client::new(config).unwrap();
             let mut api_watcher = ApiWatcher::new(client, Pod::watch_pod_for_all_namespaces);
@@ -656,6 +657,7 @@ mod tests {
                 base: server.base_url().parse().unwrap(),
                 token: Some("SOMEGARBAGETOKEN".to_string()),
                 tls_options: TlsOptions::default(),
+                proxy: Default::default(),
             };
             let client = Client::new(config).unwrap();
             let mut api_watcher = ApiWatcher::new(client, Pod::watch_pod_for_all_namespaces);

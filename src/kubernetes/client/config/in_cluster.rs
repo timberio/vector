@@ -36,6 +36,7 @@ impl Config {
             base,
             token,
             tls_options,
+            proxy: Default::default(),
         })
     }
 }

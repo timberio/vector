@@ -1,6 +1,6 @@
 use super::{host_key, Encoding};
 use crate::{
-    config::{DataType, GenerateConfig, SinkConfig, SinkContext, SinkDescription},
+    config::{DataType, GenerateConfig, ProxyConfig, SinkConfig, SinkContext, SinkDescription},
     sinks::splunk_hec::HecSinkConfig,
     sinks::util::{encoding::EncodingConfig, BatchConfig, Compression, TowerRequestConfig},
     sinks::{Healthcheck, VectorSink},
@@ -35,6 +35,7 @@ pub struct HumioLogsConfig {
     pub(in crate::sinks::humio) batch: BatchConfig,
 
     pub(in crate::sinks::humio) tls: Option<TlsOptions>,
+    pub(in crate::sinks::humio) proxy: ProxyConfig,
 }
 
 inventory::submit! {
@@ -54,6 +55,7 @@ impl GenerateConfig for HumioLogsConfig {
             request: TowerRequestConfig::default(),
             batch: BatchConfig::default(),
             tls: None,
+            proxy: Default::default(),
         })
         .unwrap()
     }
@@ -92,6 +94,7 @@ impl HumioLogsConfig {
             batch: self.batch,
             request: self.request,
             tls: self.tls.clone(),
+            proxy: self.proxy.clone(),
         }
     }
 }

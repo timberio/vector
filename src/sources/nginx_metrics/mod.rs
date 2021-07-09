@@ -1,5 +1,5 @@
 use crate::{
-    config::{DataType, SourceConfig, SourceContext, SourceDescription},
+    config::{DataType, ProxyConfig, SourceConfig, SourceContext, SourceDescription},
     event::metric::{Metric, MetricKind, MetricValue},
     event::Event,
     http::{Auth, HttpClient},
@@ -61,6 +61,11 @@ struct NginxMetricsConfig {
     namespace: String,
     tls: Option<TlsOptions>,
     auth: Option<Auth>,
+    #[serde(
+        default,
+        skip_serializing_if = "crate::serde::skip_serializing_if_default"
+    )]
+    proxy: ProxyConfig,
 }
 
 pub fn default_scrape_interval_secs() -> u64 {
@@ -82,7 +87,8 @@ impl_generate_config_from_default!(NginxMetricsConfig);
 impl SourceConfig for NginxMetricsConfig {
     async fn build(&self, cx: SourceContext) -> crate::Result<super::Source> {
         let tls = TlsSettings::from_options(&self.tls)?;
-        let http_client = HttpClient::new(tls)?;
+        let proxy = cx.globals.proxy.build(&self.proxy);
+        let http_client = HttpClient::new(tls, proxy)?;
 
         let namespace = Some(self.namespace.clone()).filter(|namespace| !namespace.is_empty());
         let mut sources = Vec::with_capacity(self.endpoints.len());

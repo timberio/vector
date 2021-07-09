@@ -20,6 +20,7 @@
 //!
 
 use crate::{
+    config::ProxyConfig,
     http::{HttpClient, HttpError},
     tls::TlsSettings,
 };
@@ -57,10 +58,11 @@ impl Client {
             base,
             tls_options,
             token,
+            proxy,
         } = config;
 
         let tls_settings = TlsSettings::from_options(&Some(tls_options))?;
-        let inner = HttpClient::new(tls_settings)?;
+        let inner = HttpClient::new(tls_settings, ProxyConfig::from_env().build(&proxy))?;
 
         let uri::Parts {
             scheme, authority, ..

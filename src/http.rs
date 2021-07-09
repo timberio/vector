@@ -46,11 +46,7 @@ where
     B::Data: Send,
     B::Error: Into<crate::Error>,
 {
-    pub fn new(tls_settings: impl Into<MaybeTlsSettings>) -> Result<HttpClient<B>, HttpError> {
-        Self::new_with_proxy(tls_settings, ProxyConfig::default())
-    }
-
-    pub fn new_with_proxy(
+    pub fn new(
         tls_settings: impl Into<MaybeTlsSettings>,
         proxy_config: ProxyConfig,
     ) -> Result<HttpClient<B>, HttpError> {

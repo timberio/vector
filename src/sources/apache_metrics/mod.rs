@@ -1,5 +1,5 @@
 use crate::{
-    config::{self, GenerateConfig, SourceConfig, SourceContext, SourceDescription},
+    config::{self, GenerateConfig, ProxyConfig, SourceConfig, SourceContext, SourceDescription},
     event::metric::{Metric, MetricKind, MetricValue},
     event::Event,
     http::HttpClient,
@@ -33,6 +33,11 @@ struct ApacheMetricsConfig {
     scrape_interval_secs: u64,
     #[serde(default = "default_namespace")]
     namespace: String,
+    #[serde(
+        default,
+        skip_serializing_if = "crate::serde::skip_serializing_if_default"
+    )]
+    proxy: ProxyConfig,
 }
 
 pub fn default_scrape_interval_secs() -> u64 {
@@ -53,6 +58,7 @@ impl GenerateConfig for ApacheMetricsConfig {
             endpoints: vec!["http://localhost:8080/server-status/?auto".to_owned()],
             scrape_interval_secs: default_scrape_interval_secs(),
             namespace: default_namespace(),
+            proxy: Default::default(),
         })
         .unwrap()
     }
@@ -77,6 +83,7 @@ impl SourceConfig for ApacheMetricsConfig {
             namespace,
             cx.shutdown,
             cx.out,
+            cx.globals.proxy.build(&self.proxy),
         ))
     }
 
@@ -137,6 +144,7 @@ fn apache_metrics(
     namespace: Option<String>,
     shutdown: ShutdownSignal,
     out: Pipeline,
+    proxy: ProxyConfig,
 ) -> super::Source {
     let out = out.sink_map_err(|error| error!(message = "Error sending metric.", %error));
 
@@ -146,7 +154,8 @@ fn apache_metrics(
             .map(move |_| stream::iter(urls.clone()))
             .flatten()
             .map(move |url| {
-                let client = HttpClient::new(None).expect("HTTPS initialization failed");
+                let client =
+                    HttpClient::new(None, proxy.clone()).expect("HTTPS initialization failed");
                 let sanitized_url = url.to_sanitized_string();
 
                 let request = Request::get(&url)
@@ -343,6 +352,7 @@ Scoreboard: ____S_____I______R____I_______KK___D__C__G_L____________W___________
             endpoints: vec![format!("http://foo:bar@{}/metrics", in_addr)],
             scrape_interval_secs: 1,
             namespace: "custom".to_string(),
+            proxy: Default::default(),
         }
         .build(SourceContext::new_test(tx))
         .await
@@ -404,6 +414,7 @@ Scoreboard: ____S_____I______R____I_______KK___D__C__G_L____________W___________
             endpoints: vec![format!("http://{}", in_addr)],
             scrape_interval_secs: 1,
             namespace: "apache".to_string(),
+            proxy: Default::default(),
         }
         .build(SourceContext::new_test(tx))
         .await
@@ -438,6 +449,7 @@ Scoreboard: ____S_____I______R____I_______KK___D__C__G_L____________W___________
             endpoints: vec![format!("http://{}", in_addr)],
             scrape_interval_secs: 1,
             namespace: "custom".to_string(),
+            proxy: Default::default(),
         }
         .build(SourceContext::new_test(tx))
         .await

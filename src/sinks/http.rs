@@ -55,7 +55,10 @@ pub struct HttpSinkConfig {
     #[serde(default)]
     pub request: RequestConfig,
     pub tls: Option<TlsOptions>,
-    #[serde(skip_serializing_if = "crate::serde::skip_serializing_if_default")]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::serde::skip_serializing_if_default"
+    )]
     pub proxy: ProxyConfig,
 }
 
@@ -130,7 +133,7 @@ impl SinkConfig for HttpSinkConfig {
     ) -> crate::Result<(super::VectorSink, super::Healthcheck)> {
         let tls = TlsSettings::from_options(&self.tls)?;
         let proxy = cx.globals.proxy.build(&self.proxy);
-        let client = HttpClient::new_with_proxy(tls, proxy)?;
+        let client = HttpClient::new(tls, proxy)?;
 
         let healthcheck = match cx.healthcheck.uri.clone() {
             Some(healthcheck_uri) => {
@@ -350,11 +353,9 @@ mod tests {
         no_proxy = ["foo.bar"]
         "#;
         let config: HttpSinkConfig = toml::from_str(config).unwrap();
-        assert!(config.proxy.is_some());
-        let proxy = config.proxy.unwrap();
-        assert_eq!(proxy.http, Some("somewhere:1234".into()));
-        assert_eq!(proxy.https, Some("nowhere:2345".into()));
-        assert_eq!(proxy.no_proxy.len(), 1);
+        assert_eq!(config.proxy.http, Some("somewhere:1234".into()));
+        assert_eq!(config.proxy.https, Some("nowhere:2345".into()));
+        assert_eq!(config.proxy.no_proxy.len(), 1);
     }
 
     #[test]

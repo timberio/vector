@@ -55,6 +55,7 @@ fn benchmark_http(c: &mut Criterion) {
                                 encoding: sinks::http::Encoding::Text.into(),
                                 request: Default::default(),
                                 tls: Default::default(),
+                                proxy: Default::default(),
                             },
                         );
 

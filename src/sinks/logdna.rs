@@ -1,5 +1,5 @@
 use crate::{
-    config::{DataType, GenerateConfig, SinkConfig, SinkContext, SinkDescription},
+    config::{DataType, GenerateConfig, ProxyConfig, SinkConfig, SinkContext, SinkDescription},
     event::Event,
     http::{Auth, HttpClient},
     internal_events::TemplateRenderingFailed,
@@ -49,6 +49,11 @@ pub struct LogdnaConfig {
 
     #[serde(default)]
     request: TowerRequestConfig,
+    #[serde(
+        default,
+        skip_serializing_if = "crate::serde::skip_serializing_if_default"
+    )]
+    proxy: ProxyConfig,
 }
 
 inventory::submit! {
@@ -85,7 +90,8 @@ impl SinkConfig for LogdnaConfig {
             .bytes(bytesize::mib(10u64))
             .timeout(1)
             .parse_config(self.batch)?;
-        let client = HttpClient::new(None)?;
+        let proxy = cx.globals.proxy.build(&self.proxy);
+        let client = HttpClient::new(None, proxy)?;
 
         let sink = PartitionHttpSink::new(
             self.clone(),

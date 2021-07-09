@@ -96,7 +96,10 @@ pub struct GlobalOptions {
     pub log_schema: LogSchema,
     #[serde(skip_serializing_if = "crate::serde::skip_serializing_if_default")]
     pub timezone: TimeZone,
-    #[serde(skip_serializing_if = "crate::serde::skip_serializing_if_default")]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::serde::skip_serializing_if_default"
+    )]
     pub proxy: ProxyConfig,
 }
 

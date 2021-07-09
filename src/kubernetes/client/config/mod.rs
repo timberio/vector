@@ -1,5 +1,6 @@
 //! Client configuration.
 
+use crate::config::ProxyConfig;
 use crate::tls::TlsOptions;
 use http::Uri;
 
@@ -26,4 +27,7 @@ pub struct Config {
 
     /// The TLS configuration parameters to use at the HTTP client.
     pub tls_options: TlsOptions,
+
+    /// The Proxy configuration at the HTTP client.
+    pub proxy: ProxyConfig,
 }

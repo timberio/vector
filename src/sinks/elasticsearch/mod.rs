@@ -1,7 +1,7 @@
 mod retry;
 
 use crate::{
-    config::{DataType, SinkConfig, SinkContext, SinkDescription},
+    config::{DataType, ProxyConfig, SinkConfig, SinkContext, SinkDescription},
     emit,
     event::{Event, Value},
     http::{Auth, HttpClient, MaybeAuth},
@@ -62,6 +62,11 @@ pub struct ElasticSearchConfig {
     #[serde(default)]
     pub request: RequestConfig,
     pub auth: Option<ElasticSearchAuth>,
+    #[serde(
+        default,
+        skip_serializing_if = "crate::serde::skip_serializing_if_default"
+    )]
+    pub proxy: ProxyConfig,
 
     // Deprecated, moved to request.
     pub headers: Option<IndexMap<String, String>>,
@@ -374,7 +379,8 @@ impl SinkConfig for ElasticSearchConfig {
         cx: SinkContext,
     ) -> crate::Result<(super::VectorSink, super::Healthcheck)> {
         let common = ElasticSearchCommon::parse_config(self)?;
-        let client = HttpClient::new(common.tls_settings.clone())?;
+        let proxy = cx.globals.proxy.build(&self.proxy);
+        let client = HttpClient::new(common.tls_settings.clone(), proxy)?;
 
         let healthcheck = common.healthcheck(client.clone()).boxed();
 
