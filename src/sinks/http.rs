@@ -55,7 +55,8 @@ pub struct HttpSinkConfig {
     #[serde(default)]
     pub request: RequestConfig,
     pub tls: Option<TlsOptions>,
-    pub proxy: Option<ProxyConfig>,
+    #[serde(skip_serializing_if = "crate::serde::skip_serializing_if_default")]
+    pub proxy: ProxyConfig,
 }
 
 #[cfg(test)]
@@ -128,7 +129,8 @@ impl SinkConfig for HttpSinkConfig {
         cx: SinkContext,
     ) -> crate::Result<(super::VectorSink, super::Healthcheck)> {
         let tls = TlsSettings::from_options(&self.tls)?;
-        let client = HttpClient::new(tls)?;
+        let proxy = cx.globals.proxy.build(&self.proxy);
+        let client = HttpClient::new_with_proxy(tls, proxy)?;
 
         let healthcheck = match cx.healthcheck.uri.clone() {
             Some(healthcheck_uri) => {

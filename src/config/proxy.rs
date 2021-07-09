@@ -67,10 +67,10 @@ impl ProxyConfig {
         }
     }
 
-    pub fn merge(&self, other: &Self) -> Self {
+    fn merge(self, other: &Self) -> Self {
         Self {
-            http: self.http.clone().or(other.http.clone()),
-            https: self.https.clone().or(other.https.clone()),
+            http: self.http.or(other.http.clone()),
+            https: self.https.or(other.https.clone()),
             no_proxy: self
                 .no_proxy
                 .union(&other.no_proxy)
@@ -79,12 +79,10 @@ impl ProxyConfig {
         }
     }
 
-    pub fn maybe_merge(&self, other: &Option<Self>) -> Self {
-        if let Some(other) = other {
-            self.merge(other)
-        } else {
-            self.clone()
-        }
+    pub fn build(&self, other: &Self) -> Self {
+        // in order, we take first the environment variable,
+        // the the global variables and then the service config
+        Self::from_env().merge(&self).merge(other)
     }
 
     fn http_intercept(&self) -> Intercept {
