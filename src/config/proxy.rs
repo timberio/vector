@@ -1,11 +1,47 @@
-use http::uri::InvalidUri;
-use hyper_proxy::{Intercept, Proxy, ProxyConnector};
+use http::uri::{InvalidUri, Uri};
+use hyper_proxy::{Custom, Intercept, Proxy, ProxyConnector};
 use std::collections::HashSet;
 
 fn from_env(key: &str) -> Option<String> {
     std::env::var(key.to_string())
         .ok()
         .or_else(|| std::env::var(key.to_lowercase()).ok())
+}
+
+struct NoProxyCache(HashSet<Uri>);
+
+impl From<&HashSet<String>> for NoProxyCache {
+    fn from(hashset: &HashSet<String>) -> Self {
+        Self(
+            hashset
+                .iter()
+                .filter_map(|uri| uri.parse::<Uri>().ok())
+                .collect(),
+        )
+    }
+}
+
+impl NoProxyCache {
+    fn matches(&self, scheme: Option<&str>, host: Option<&str>, port: Option<u16>) -> bool {
+        for uri in self.0.iter() {
+            if uri.scheme_str() == scheme && uri.host() == host && uri.port_u16() == port {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn intercept(self, expected_scheme: &'static str) -> Intercept {
+        Intercept::Custom(Custom::from(
+            move |scheme: Option<&str>, host: Option<&str>, port: Option<u16>| {
+                if scheme != Some(expected_scheme) {
+                    return false;
+                }
+                // only intercapt those that don't match
+                !self.matches(scheme, host, port)
+            },
+        ))
+    }
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Clone, Default, Debug, PartialEq)]
@@ -51,9 +87,8 @@ impl ProxyConfig {
         }
     }
 
-    // TODO implement an interceptor with no_proxy
     fn http_intercept(&self) -> Intercept {
-        Intercept::Http
+        NoProxyCache::from(&self.no_proxy).intercept("http")
     }
 
     fn http_proxy(&self) -> Result<Option<Proxy>, InvalidUri> {
@@ -64,9 +99,8 @@ impl ProxyConfig {
         }
     }
 
-    // TODO implement an interceptor with no_proxy
     fn https_intercept(&self) -> Intercept {
-        Intercept::Https
+        NoProxyCache::from(&self.no_proxy).intercept("https")
     }
 
     fn https_proxy(&self) -> Result<Option<Proxy>, InvalidUri> {
@@ -91,6 +125,21 @@ impl ProxyConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn no_proxy_cache() {
+        let cache = NoProxyCache::from(&{
+            let mut set = HashSet::new();
+            set.insert("127.0.0.1".into());
+            set.insert("https://www.google.com".into());
+            set.insert("http://rick.sanchez:8080".into());
+            set
+        });
+        assert!(cache.matches(None, Some("127.0.0.1"), None));
+        assert!(!cache.matches(None, Some("www.google.com"), None));
+        assert!(!cache.matches(Some("http"), Some("localhost"), None));
+        assert!(cache.matches(Some("http"), Some("rick.sanchez"), Some(8080)));
+    }
 
     #[test]
     fn merge() {
