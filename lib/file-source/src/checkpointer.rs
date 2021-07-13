@@ -7,9 +7,11 @@ use dashmap::DashMap;
 use glob::glob;
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::HashMap,
     fs, io,
     path::{Path, PathBuf},
     sync::Arc,
+    sync::Mutex,
 };
 use tracing::{error, info, warn};
 
@@ -27,9 +29,34 @@ enum State {
     V1 { checkpoints: Vec<Checkpoint> },
 }
 
+impl Eq for State {}
+
+impl PartialEq for State {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (State::V1 { checkpoints: a }, State::V1 { checkpoints: b }) if a.len() == b.len() => {
+                let map: HashMap<_, _> = a.iter().map(|c| (c.fingerprint, c)).collect();
+
+                for c in b {
+                    if let Some(entry) = map.get(&c.fingerprint) {
+                        if entry != &c {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                }
+
+                true
+            }
+            (State::V1 { .. }, State::V1 { .. }) => false,
+        }
+    }
+}
+
 /// A simple JSON-friendly struct of the fingerprint/position pair, since
 /// fingerprints as objects cannot be keys in a plain JSON map.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
 struct Checkpoint {
     fingerprint: FileFingerprint,
@@ -43,6 +70,7 @@ pub struct Checkpointer {
     stable_file_path: PathBuf,
     glob_string: String,
     checkpoints: Arc<CheckpointsView>,
+    last: Mutex<Option<State>>,
 }
 
 /// A thread-safe handle for reading and writing checkpoints in-memory across
@@ -201,6 +229,7 @@ impl Checkpointer {
             tmp_file_path,
             stable_file_path,
             checkpoints: Arc::new(CheckpointsView::default()),
+            last: Mutex::new(None),
         }
     }
 
@@ -292,20 +321,35 @@ impl Checkpointer {
         // matter anymore.
         self.checkpoints.remove_expired();
 
-        // Write the new checkpoints to a tmp file and flush it fully to
-        // disk. If vector dies anywhere during this section, the existing
-        // stable file will still be in its current valid state and we'll be
-        // able to recover.
-        let mut f = io::BufWriter::new(fs::File::create(&self.tmp_file_path)?);
-        serde_json::to_writer(&mut f, &self.checkpoints.get_state())?;
-        f.into_inner()?.sync_all()?;
+        let current = self.checkpoints.get_state();
 
-        // Once the temp file is fully flushed, rename the tmp file to replace
-        // the previous stable file. This is an atomic operation on POSIX
-        // systems (and the stdlib claims to provide equivalent behavior on
-        // Windows), which should prevent scenarios where we don't have at least
-        // one full valid file to recover from.
-        fs::rename(&self.tmp_file_path, &self.stable_file_path)?;
+        // Fetch last written state.
+        let mut last = match self.last.lock() {
+            Ok(guard) => guard,
+            Err(mut poisoned) => {
+                // Remove possibly invalid state.
+                **poisoned.get_mut() = None;
+                poisoned.into_inner()
+            }
+        };
+        if last.as_ref() != Some(&current) {
+            // Write the new checkpoints to a tmp file and flush it fully to
+            // disk. If vector dies anywhere during this section, the existing
+            // stable file will still be in its current valid state and we'll be
+            // able to recover.
+            let mut f = io::BufWriter::new(fs::File::create(&self.tmp_file_path)?);
+            serde_json::to_writer(&mut f, &current)?;
+            f.into_inner()?.sync_all()?;
+
+            // Once the temp file is fully flushed, rename the tmp file to replace
+            // the previous stable file. This is an atomic operation on POSIX
+            // systems (and the stdlib claims to provide equivalent behavior on
+            // Windows), which should prevent scenarios where we don't have at least
+            // one full valid file to recover from.
+            fs::rename(&self.tmp_file_path, &self.stable_file_path)?;
+
+            *last = Some(current);
+        }
 
         Ok(self.checkpoints.checkpoints.len())
     }
