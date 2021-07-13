@@ -43,7 +43,7 @@ components: sinks: prometheus_remote_write: {
 				enabled_default:        false
 			}
 			to: {
-				service: services.prometheus
+				service: services.prometheus_remote_write
 
 				interface: {
 					socket: {
