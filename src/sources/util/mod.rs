@@ -1,5 +1,12 @@
 #[cfg(any(feature = "sources-http", feature = "sources-datadog"))]
 mod body_decoding;
+#[cfg(any(
+    feature = "sources-socket",
+    feature = "sources-statsd",
+    feature = "sources-syslog",
+    feature = "sources-vector"
+))]
+pub mod decoding;
 mod encoding_config;
 #[cfg(any(feature = "sources-file", feature = "sources-kafka"))]
 pub(crate) mod finalizer;

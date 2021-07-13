@@ -19,11 +19,11 @@ impl InternalEvent for VectorEventReceived {
 }
 
 #[derive(Debug)]
-pub struct VectorProtoDecodeError {
-    pub error: DecodeError,
+pub struct VectorProtoDecodeError<'a> {
+    pub error: &'a DecodeError,
 }
 
-impl InternalEvent for VectorProtoDecodeError {
+impl<'a> InternalEvent for VectorProtoDecodeError<'a> {
     fn emit_logs(&self) {
         error!(message = "Failed to decode protobuf message.", error = ?self.error, internal_log_rate_secs = 10);
     }

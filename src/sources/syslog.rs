@@ -8,8 +8,9 @@ use crate::{
         SourceDescription,
     },
     event::{Event, Value},
-    internal_events::{SyslogEventReceived, SyslogUdpReadError, SyslogUdpUtf8Error},
+    internal_events::{SocketMode, SyslogEventReceived, SyslogUdpReadError, SyslogUtf8Error},
     shutdown::ShutdownSignal,
+    sources::util::decoding,
     tcp::TcpKeepaliveConfig,
     tls::{MaybeTlsSettings, TlsConfig},
     Pipeline,
@@ -18,10 +19,9 @@ use bytes::{Buf, Bytes, BytesMut};
 use chrono::{Datelike, Utc};
 use futures::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
-use std::io;
-use std::net::SocketAddr;
 #[cfg(unix)]
 use std::path::PathBuf;
+use std::{io, net::SocketAddr, sync::Arc};
 use syslog_loose::{IncompleteDate, Message, ProcId, Protocol};
 use tokio::net::UdpSocket;
 use tokio_util::{
@@ -108,10 +108,10 @@ impl SourceConfig for SyslogConfig {
                 tls,
                 receive_buffer_bytes,
             } => {
-                let source = SyslogTcpSource {
+                let source = Arc::new(SyslogTcpSource {
                     max_length: self.max_length,
                     host_key,
-                };
+                });
                 let shutdown_secs = 30;
                 let tls = MaybeTlsSettings::from_config(&tls, true)?;
                 source.run(
@@ -142,7 +142,13 @@ impl SourceConfig for SyslogConfig {
                 host_key,
                 cx.shutdown,
                 cx.out,
-                |host_key, default_host, line| Some(event_from_str(host_key, default_host, line)),
+                |bytes, host_key, default_host| {
+                    let bytes: &[u8] = &bytes;
+                    let line = std::str::from_utf8(bytes).unwrap(); // Guaranteed to be valid UTF-8 by `LinesCodec`.
+                    let mut event = event_from_str(line);
+                    enrich_syslog_event(&mut event, host_key, default_host, bytes.len());
+                    Some(event)
+                },
             )),
         }
     }
@@ -165,6 +171,16 @@ impl SourceConfig for SyslogConfig {
     }
 }
 
+struct SyslogParser;
+
+impl decoding::Parser for SyslogParser {
+    fn parse(&self, bytes: Bytes) -> crate::Result<Event> {
+        let bytes: &[u8] = &bytes;
+        let line = std::str::from_utf8(bytes)?;
+        Ok(event_from_str(line))
+    }
+}
+
 #[derive(Debug, Clone)]
 struct SyslogTcpSource {
     max_length: usize,
@@ -173,14 +189,15 @@ struct SyslogTcpSource {
 
 impl TcpSource for SyslogTcpSource {
     type Error = LinesCodecError;
-    type Decoder = SyslogDecoder;
+    type Item = Event;
+    type Decoder = decoding::Decoder<Self::Error, SyslogParser>;
 
-    fn decoder(&self) -> Self::Decoder {
-        SyslogDecoder::new(self.max_length)
+    fn create_decoder(&self) -> Self::Decoder {
+        decoding::Decoder::new(Box::new(SyslogDecoder::new(self.max_length)), SyslogParser)
     }
 
-    fn build_event(&self, frame: String, host: Bytes) -> Option<Event> {
-        Some(event_from_str(&self.host_key, Some(host), &frame))
+    fn handle_event(&self, event: &mut Event, host: Bytes, byte_size: usize) {
+        enrich_syslog_event(event, &self.host_key, Some(host), byte_size);
     }
 }
 
@@ -210,7 +227,7 @@ impl SyslogDecoder {
         &mut self,
         state: State,
         src: &mut BytesMut,
-    ) -> Result<Option<String>, LinesCodecError> {
+    ) -> Result<Option<Bytes>, LinesCodecError> {
         // Encoding scheme:
         //
         // len ' ' data
@@ -297,25 +314,10 @@ impl SyslogDecoder {
 
                     Ok(None)
                 } else if let Some(msg) = src.get(from..to) {
-                    let s = match std::str::from_utf8(msg) {
-                        Ok(s) => s.to_string(),
-                        Err(_) => {
-                            // The data was not valid UTF8 :-(.
-                            // Advance the buffer past the erroneous bytes
-                            // to prevent us getting stuck in an infinite loop.
-                            src.advance(to);
-                            self.octet_decoding = None;
-                            return Err(LinesCodecError::Io(io::Error::new(
-                                io::ErrorKind::InvalidData,
-                                "Unable to decode message as UTF8",
-                            )));
-                        }
-                    };
-
-                    // We have managed to read the entire message as valid UTF8!
+                    let bytes = Bytes::copy_from_slice(msg);
                     src.advance(to);
                     self.octet_decoding = None;
-                    Ok(Some(s))
+                    Ok(Some(bytes))
                 } else {
                     // We have an acceptable number of bytes in this message, but all the data
                     // was not in the frame, return None to indicate we want more data before we
@@ -354,7 +356,7 @@ impl SyslogDecoder {
     fn checked_decode(
         &mut self,
         src: &mut BytesMut,
-    ) -> Option<Result<Option<String>, LinesCodecError>> {
+    ) -> Option<Result<Option<Bytes>, LinesCodecError>> {
         if let Some(&first_byte) = src.get(0) {
             if (49..=57).contains(&first_byte) {
                 // First character is non zero number so we can assume that
@@ -370,7 +372,7 @@ impl SyslogDecoder {
 }
 
 impl Decoder for SyslogDecoder {
-    type Item = String;
+    type Item = Bytes;
     type Error = LinesCodecError;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
@@ -378,7 +380,9 @@ impl Decoder for SyslogDecoder {
             ret
         } else {
             // Octet counting isn't used so fallback to newline codec.
-            self.other.decode(src)
+            self.other
+                .decode(src)
+                .map(|line| line.map(|line| line.into()))
         }
     }
 
@@ -387,7 +391,9 @@ impl Decoder for SyslogDecoder {
             ret
         } else {
             // Octet counting isn't used so fallback to newline codec.
-            self.other.decode_eof(buf)
+            self.other
+                .decode_eof(buf)
+                .map(|line| line.map(|line| line.into()))
         }
     }
 }
@@ -429,9 +435,23 @@ pub fn udp(
                             let received_from = received_from.ip().to_string().into();
 
                             std::str::from_utf8(&bytes)
-                                .map_err(|error| emit!(SyslogUdpUtf8Error { error }))
+                                .map_err(|error| {
+                                    emit!(SyslogUtf8Error {
+                                        mode: SocketMode::Udp,
+                                        error
+                                    })
+                                })
                                 .ok()
-                                .map(|s| Ok(event_from_str(&host_key, Some(received_from), s)))
+                                .map(|s| {
+                                    let mut event = event_from_str(s);
+                                    enrich_syslog_event(
+                                        &mut event,
+                                        &host_key,
+                                        Some(received_from),
+                                        bytes.len(),
+                                    );
+                                    Ok(event)
+                                })
                         }
                         Err(error) => {
                             emit!(SyslogUdpReadError { error });
@@ -467,45 +487,47 @@ fn resolve_year((month, _date, _hour, _min, _sec): IncompleteDate) -> i32 {
 // TODO: many more cases to handle:
 // octet framing (i.e. num bytes as ascii string prefix) with and without delimiters
 // null byte delimiter in place of newline
-fn event_from_str(host_key: &str, default_host: Option<Bytes>, line: &str) -> Event {
+fn event_from_str(line: &str) -> Event {
     let line = line.trim();
     let parsed = syslog_loose::parse_message_with_year(line, resolve_year);
     let mut event = Event::from(parsed.msg);
 
-    // Add source type
-    event
-        .as_mut_log()
-        .insert(log_schema().source_type_key(), Bytes::from("syslog"));
-
-    if let Some(default_host) = default_host.clone() {
-        event.as_mut_log().insert("source_ip", default_host);
-    }
-
-    let parsed_hostname = parsed.hostname.map(|x| Bytes::from(x.to_owned()));
-    if let Some(parsed_host) = parsed_hostname.or(default_host) {
-        event.as_mut_log().insert(host_key, parsed_host);
-    }
-
-    let timestamp = parsed
-        .timestamp
-        .map(|ts| ts.into())
-        .unwrap_or_else(Utc::now);
-    event
-        .as_mut_log()
-        .insert(log_schema().timestamp_key(), timestamp);
-
     insert_fields_from_syslog(&mut event, parsed);
 
-    emit!(SyslogEventReceived {
-        byte_size: line.len()
-    });
+    event
+}
+
+fn enrich_syslog_event(
+    event: &mut Event,
+    host_key: &str,
+    default_host: Option<Bytes>,
+    byte_size: usize,
+) {
+    let log = event.as_mut_log();
+
+    log.insert(log_schema().source_type_key(), Bytes::from("syslog"));
+
+    if let Some(default_host) = &default_host {
+        log.insert("source_ip", default_host.clone());
+    }
+
+    let parsed_hostname = log.get("hostname").map(|hostname| hostname.as_bytes());
+    if let Some(parsed_host) = parsed_hostname.or(default_host) {
+        log.insert(host_key, parsed_host);
+    }
+
+    let timestamp = log
+        .get("timestamp")
+        .and_then(|timestamp| timestamp.as_timestamp().copied())
+        .unwrap_or_else(Utc::now);
+    log.insert(log_schema().timestamp_key(), timestamp);
+
+    emit!(SyslogEventReceived { byte_size });
 
     trace!(
         message = "Processing one event.",
         event = ?event
     );
-
-    event
 }
 
 fn insert_fields_from_syslog(event: &mut Event, parsed: Message<&str>) {
@@ -680,6 +702,17 @@ mod test {
         assert!(matches!(config.mode, Mode::Unix { .. }));
     }
 
+    fn enriched_syslog(
+        line: &str,
+        host_key: &str,
+        default_host: Option<Bytes>,
+        byte_size: usize,
+    ) -> Event {
+        let mut event = event_from_str(line);
+        enrich_syslog_event(&mut event, host_key, default_host, byte_size);
+        event
+    }
+
     #[test]
     fn syslog_ng_network_syslog_protocol() {
         // this should also match rsyslog omfwd with template=RSYSLOG_SyslogProtocol23Format
@@ -716,7 +749,10 @@ mod test {
             expected.insert("procid", 8449);
         }
 
-        assert_event_data_eq!(event_from_str(&"host".to_string(), None, &raw), expected);
+        assert_event_data_eq!(
+            enriched_syslog(&raw, &"host".to_string(), None, raw.len()),
+            expected
+        );
     }
 
     #[test]
@@ -744,7 +780,7 @@ mod test {
             expected.insert("procid", 8449);
         }
 
-        let event = event_from_str(&"host".to_string(), None, &raw);
+        let event = enriched_syslog(&raw, &"host".to_string(), None, raw.len());
         assert_event_data_eq!(event, expected);
 
         let raw = format!(
@@ -752,7 +788,7 @@ mod test {
             r#"[incorrect x=]"#, msg
         );
 
-        let event = event_from_str(&"host".to_string(), None, &raw);
+        let event = enriched_syslog(&raw, &"host".to_string(), None, raw.len());
         assert_event_data_eq!(event, expected);
     }
 
@@ -771,7 +807,7 @@ mod test {
             r#"[empty]"#
         );
 
-        let event = event_from_str(&"host".to_string(), None, &msg);
+        let event = enriched_syslog(&msg, &"host".to_string(), None, msg.len());
         assert!(there_is_map_called_empty(event));
 
         let msg = format!(
@@ -779,7 +815,7 @@ mod test {
             r#"[non_empty x="1"][empty]"#
         );
 
-        let event = event_from_str(&"host".to_string(), None, &msg);
+        let event = enriched_syslog(&msg, &"host".to_string(), None, msg.len());
         assert!(there_is_map_called_empty(event));
 
         let msg = format!(
@@ -787,7 +823,7 @@ mod test {
             r#"[empty][non_empty x="1"]"#
         );
 
-        let event = event_from_str(&"host".to_string(), None, &msg);
+        let event = enriched_syslog(&msg, &"host".to_string(), None, msg.len());
         assert!(there_is_map_called_empty(event));
 
         let msg = format!(
@@ -795,7 +831,7 @@ mod test {
             r#"[empty not_really="testing the test"]"#
         );
 
-        let event = event_from_str(&"host".to_string(), None, &msg);
+        let event = enriched_syslog(&msg, &"host".to_string(), None, msg.len());
         assert!(!there_is_map_called_empty(event));
     }
 
@@ -808,8 +844,8 @@ mod test {
         let cleaned = r#"<13>1 2019-02-13T19:48:34+00:00 74794bfb6795 root 8449 - [meta sequenceId="1"] i am foobar"#;
 
         assert_event_data_eq!(
-            event_from_str(&"host".to_string(), None, raw),
-            event_from_str(&"host".to_string(), None, cleaned)
+            enriched_syslog(&raw, &"host".to_string(), None, raw.len()),
+            enriched_syslog(&cleaned, &"host".to_string(), None, cleaned.len())
         );
     }
 
@@ -817,7 +853,7 @@ mod test {
     fn syslog_ng_default_network() {
         let msg = "i am foobar";
         let raw = format!(r#"<13>Feb 13 20:07:26 74794bfb6795 root[8539]: {}"#, msg);
-        let event = event_from_str(&"host".to_string(), None, &raw);
+        let event = enriched_syslog(&raw, &"host".to_string(), None, raw.len());
 
         let mut expected = Event::from(msg);
         {
@@ -847,7 +883,7 @@ mod test {
             r#"<190>Feb 13 21:31:56 74794bfb6795 liblogging-stdlog:  [origin software="rsyslogd" swVersion="8.24.0" x-pid="8979" x-info="http://www.rsyslog.com"] {}"#,
             msg
         );
-        let event = event_from_str(&"host".to_string(), None, &raw);
+        let event = enriched_syslog(&raw, &"host".to_string(), None, raw.len());
 
         let mut expected = Event::from(msg);
         {
@@ -902,7 +938,10 @@ mod test {
             expected.insert("origin.x-info", "http://www.rsyslog.com");
         }
 
-        assert_event_data_eq!(event_from_str(&"host".to_string(), None, &raw), expected);
+        assert_event_data_eq!(
+            enriched_syslog(&raw, &"host".to_string(), None, raw.len()),
+            expected
+        );
     }
 
     #[test]
@@ -917,8 +956,8 @@ mod test {
         buffer.put(&b"8 penguins in the shop.\n"[..]);
         let result = decoder.decode(&mut buffer);
         assert_eq!(
-            Ok(Some("<57>Mar 25 21:47:46 gleichner6005 quaerat[2444]: There were 8 penguins in the shop.".to_string())),
-            result.map_err(|_| true)
+            Some("<57>Mar 25 21:47:46 gleichner6005 quaerat[2444]: There were 8 penguins in the shop.".into()),
+            result.unwrap()
         );
     }
 
@@ -935,10 +974,7 @@ mod test {
         // try to decode a new message.
         buffer.put(&b"3 nopqrstuvwxyz"[..]);
         let result = decoder.decode(&mut buffer);
-        assert_eq!(
-            Ok(Some("abcdefghijklm3 nopqrstuvwxyz".to_string())),
-            result.map_err(|_| false)
-        );
+        assert_eq!(Some("abcdefghijklm3 nopqrstuvwxyz".into()), result.unwrap());
     }
 
     #[test]

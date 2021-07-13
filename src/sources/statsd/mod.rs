@@ -4,18 +4,24 @@ use crate::{
     event::Event,
     internal_events::{StatsdEventReceived, StatsdInvalidRecord, StatsdSocketError},
     shutdown::ShutdownSignal,
-    sources::util::{SocketListenAddr, TcpSource},
+    sources::util::{
+        decoding::{self},
+        SocketListenAddr, TcpSource,
+    },
     tcp::TcpKeepaliveConfig,
     tls::{MaybeTlsSettings, TlsConfig},
     Pipeline,
 };
 use bytes::Bytes;
 use codec::BytesDelimitedCodec;
-use futures::{stream, SinkExt, StreamExt, TryFutureExt};
+use futures::{SinkExt, StreamExt, TryFutureExt};
 use serde::{Deserialize, Serialize};
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::{
+    net::{Ipv4Addr, SocketAddr, SocketAddrV4},
+    sync::Arc,
+};
 use tokio::net::UdpSocket;
-use tokio_util::{codec::BytesCodec, udp::UdpFramed};
+use tokio_util::udp::UdpFramed;
 
 pub mod parser;
 #[cfg(unix)]
@@ -100,7 +106,8 @@ impl SourceConfig for StatsdConfig {
             }
             StatsdConfig::Tcp(config) => {
                 let tls = MaybeTlsSettings::from_config(&config.tls, true)?;
-                StatsdTcpSource.run(
+                let source = Arc::new(StatsdTcpSource);
+                source.run(
                     config.address,
                     config.keepalive,
                     config.shutdown_timeout_secs,
@@ -133,17 +140,21 @@ impl SourceConfig for StatsdConfig {
     }
 }
 
-pub(self) fn parse_event(line: &str) -> Option<Event> {
-    match parse(line) {
-        Ok(metric) => {
-            emit!(StatsdEventReceived {
-                byte_size: line.len()
-            });
-            Some(Event::Metric(metric))
-        }
-        Err(error) => {
-            emit!(StatsdInvalidRecord { error, text: line });
-            None
+pub struct StatsdParser;
+
+impl decoding::Parser for StatsdParser {
+    fn parse(&self, bytes: Bytes) -> crate::Result<Event> {
+        let line = String::from_utf8_lossy(&bytes);
+
+        match parse(&line) {
+            Ok(metric) => Ok(Event::Metric(metric)),
+            Err(error) => {
+                emit!(StatsdInvalidRecord {
+                    error: &error,
+                    text: &line
+                });
+                Err(Box::new(error))
+            }
         }
     }
 }
@@ -169,17 +180,12 @@ async fn statsd_udp(
         r#type = "udp"
     );
 
-    let mut stream = UdpFramed::new(socket, BytesCodec::new()).take_until(shutdown);
+    let codec = decoding::Decoder::new(Box::new(BytesDelimitedCodec::new(b'\n')), StatsdParser);
+    let mut stream = UdpFramed::new(socket, codec).take_until(shutdown);
     while let Some(frame) = stream.next().await {
         match frame {
-            Ok((bytes, _sock)) => {
-                let packet = String::from_utf8_lossy(bytes.as_ref());
-                let metrics = packet.lines().filter_map(parse_event).map(Ok);
-
-                // Need `boxed` to resolve a lifetime issue
-                // https://github.com/rust-lang/rust/issues/64552#issuecomment-669728225
-                let mut metrics = stream::iter(metrics).boxed();
-                if let Err(error) = out.send_all(&mut metrics).await {
+            Ok(((metrics, _byte_size), _sock)) => {
+                if let Err(error) = out.send(metrics).await {
                     error!(message = "Error sending metric.", %error);
                     break;
                 }
@@ -198,15 +204,15 @@ struct StatsdTcpSource;
 
 impl TcpSource for StatsdTcpSource {
     type Error = std::io::Error;
-    type Decoder = BytesDelimitedCodec;
+    type Item = Event;
+    type Decoder = decoding::Decoder<Self::Error, StatsdParser>;
 
-    fn decoder(&self) -> Self::Decoder {
-        BytesDelimitedCodec::new(b'\n')
+    fn create_decoder(&self) -> Self::Decoder {
+        decoding::Decoder::new(Box::new(BytesDelimitedCodec::new(b'\n')), StatsdParser)
     }
 
-    fn build_event(&self, line: Bytes, _host: Bytes) -> Option<Event> {
-        let line = String::from_utf8_lossy(line.as_ref());
-        parse_event(&line)
+    fn handle_event(&self, _event: &mut Event, _host: Bytes, byte_size: usize) {
+        emit!(StatsdEventReceived { byte_size });
     }
 }
 

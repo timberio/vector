@@ -21,7 +21,7 @@ use tracing::field;
 use tracing_futures::Instrument;
 
 /// Returns a Source object corresponding to a Unix domain stream
-/// socket.  Passing in different functions for build_event can allow
+/// socket. Passing in different functions for build_event can allow
 /// for different source-specific logic (such as decoding syslog
 /// messages in the syslog source).
 pub fn build_unix_stream_source<D>(
@@ -30,10 +30,11 @@ pub fn build_unix_stream_source<D>(
     host_key: String,
     shutdown: ShutdownSignal,
     out: Pipeline,
-    build_event: impl Fn(&str, Option<Bytes>, &str) -> Option<Event> + Clone + Send + Sync + 'static,
+    build_event: impl Fn(Bytes, &str, Option<Bytes>) -> Option<Event> + Clone + Send + Sync + 'static,
 ) -> Source
 where
-    D: Decoder<Item = String> + Clone + Send + 'static,
+    D: Decoder + Clone + Send + 'static,
+    D::Item: Into<Bytes>,
     D::Error: From<std::io::Error> + std::fmt::Debug + std::fmt::Display,
 {
     let out = out.sink_map_err(|error| error!(message = "Error sending line.", %error));
@@ -74,9 +75,11 @@ where
                 path.map(|p| p.to_string_lossy().into_owned().into());
 
             let stream = socket.allow_read_until(shutdown.clone().map(|_| ()));
-            let mut stream = FramedRead::new(stream, decoder.clone()).filter_map(move |line| {
-                ready(match line {
-                    Ok(line) => build_event(&host_key, received_from.clone(), &line).map(Ok),
+            let mut stream = FramedRead::new(stream, decoder.clone()).filter_map(move |bytes| {
+                ready(match bytes {
+                    Ok(bytes) => {
+                        build_event(bytes.into(), &host_key, received_from.clone()).map(Ok)
+                    }
                     Err(error) => {
                         emit!(UnixSocketError {
                             error,

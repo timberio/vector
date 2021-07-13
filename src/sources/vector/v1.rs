@@ -3,7 +3,7 @@ use crate::{
     event::{proto, Event},
     internal_events::{VectorEventReceived, VectorProtoDecodeError},
     sources::{
-        util::{SocketListenAddr, TcpSource},
+        util::{decoding, SocketListenAddr, TcpSource},
         Source,
     },
     tcp::TcpKeepaliveConfig,
@@ -13,6 +13,7 @@ use bytes::{Bytes, BytesMut};
 use getset::Setters;
 use prost::Message;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tokio_util::codec::LengthDelimitedCodec;
 
 #[derive(Deserialize, Serialize, Debug, Clone, Setters)]
@@ -54,7 +55,7 @@ impl GenerateConfig for VectorConfig {
 
 impl VectorConfig {
     pub(super) async fn build(&self, cx: SourceContext) -> crate::Result<Source> {
-        let vector = VectorSource;
+        let vector = Arc::new(VectorSource);
         let tls = MaybeTlsSettings::from_config(&self.tls, true)?;
         vector.run(
             self.address,
@@ -80,29 +81,34 @@ impl VectorConfig {
     }
 }
 
+struct VectorParser;
+
+impl decoding::Parser for VectorParser {
+    fn parse(&self, bytes: Bytes) -> crate::Result<Event> {
+        match proto::EventWrapper::decode(bytes) {
+            Ok(wrapper) => Ok(wrapper.into()),
+            Err(error) => {
+                emit!(VectorProtoDecodeError { error: &error });
+                Err(Box::new(error))
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct VectorSource;
 
 impl TcpSource for VectorSource {
     type Error = std::io::Error;
-    type Decoder = LengthDelimitedCodec;
+    type Item = Event;
+    type Decoder = decoding::Decoder<Self::Error, VectorParser, BytesMut>;
 
-    fn decoder(&self) -> Self::Decoder {
-        LengthDelimitedCodec::new()
+    fn create_decoder(&self) -> Self::Decoder {
+        decoding::Decoder::new(Box::new(LengthDelimitedCodec::new()), VectorParser)
     }
 
-    fn build_event(&self, frame: BytesMut, _host: Bytes) -> Option<Event> {
-        let byte_size = frame.len();
-        match proto::EventWrapper::decode(frame).map(Event::from) {
-            Ok(event) => {
-                emit!(VectorEventReceived { byte_size });
-                Some(event)
-            }
-            Err(error) => {
-                emit!(VectorProtoDecodeError { error });
-                None
-            }
-        }
+    fn handle_event(&self, _event: &mut Event, _host: Bytes, byte_size: usize) {
+        emit!(VectorEventReceived { byte_size });
     }
 }
 

@@ -40,7 +40,7 @@ impl UnixConfig {
 * Function to pass to build_unix_*_source, specific to the basic unix source.
 * Takes a single line of a received message and builds an Event object.
 **/
-fn build_event(host_key: &str, received_from: Option<Bytes>, line: &str) -> Event {
+fn build_event(line: &str, host_key: &str, received_from: Option<Bytes>) -> Event {
     let byte_size = line.len();
     let mut event = Event::from(line);
     event.as_mut_log().insert(
@@ -71,7 +71,10 @@ pub(super) fn unix_datagram(
         LinesCodec::new_with_max_length(max_length),
         shutdown,
         out,
-        |host_key, received_from, line| Some(build_event(host_key, received_from, line)),
+        |bytes, host_key, received_from| {
+            let line = std::str::from_utf8(&bytes).unwrap(); // Guaranteed to be valid UTF-8 by `LinesCodec`.
+            Some(build_event(line, host_key, received_from))
+        },
     )
 }
 
@@ -88,6 +91,9 @@ pub(super) fn unix_stream(
         host_key,
         shutdown,
         out,
-        |host_key, received_from, line| Some(build_event(host_key, received_from, line)),
+        |bytes, host_key, received_from| {
+            let line = std::str::from_utf8(&bytes).unwrap(); // Guaranteed to be valid UTF-8 by `LinesCodec`.
+            Some(build_event(line, host_key, received_from))
+        },
     )
 }

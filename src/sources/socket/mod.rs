@@ -3,7 +3,7 @@ mod udp;
 #[cfg(unix)]
 mod unix;
 
-use super::util::TcpSource;
+use super::util::{decoding, TcpSource};
 use crate::{
     config::{
         log_schema, DataType, GenerateConfig, Resource, SourceConfig, SourceContext,
@@ -11,8 +11,9 @@ use crate::{
     },
     tls::MaybeTlsSettings,
 };
+use codec::BytesDelimitedCodec;
 use serde::{Deserialize, Serialize};
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 // TODO: add back when https://github.com/serde-rs/serde/issues/1358 is addressed
@@ -80,9 +81,27 @@ impl SourceConfig for SocketConfig {
     async fn build(&self, cx: SourceContext) -> crate::Result<super::Source> {
         match self.mode.clone() {
             Mode::Tcp(config) => {
-                let tcp = tcp::RawTcpSource {
-                    config: config.clone(),
-                };
+                // Todo: Select framing and parsing dynamically from configuration.
+                struct BytesParser;
+                impl decoding::Parser for BytesParser {
+                    fn parse(
+                        &self,
+                        bytes: bytes::Bytes,
+                    ) -> crate::Result<vector_core::event::Event> {
+                        Ok(bytes.into())
+                    }
+                }
+
+                let max_length = config.max_length();
+                let tcp = Arc::new(tcp::RawTcpSource::new(
+                    config.clone(),
+                    Box::new(move || {
+                        decoding::Decoder::new(
+                            Box::new(BytesDelimitedCodec::new_with_max_length(b'\n', max_length)),
+                            BytesParser,
+                        )
+                    }),
+                ));
                 let tls = MaybeTlsSettings::from_config(config.tls(), true)?;
                 tcp.run(
                     config.address(),

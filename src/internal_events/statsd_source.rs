@@ -19,7 +19,7 @@ impl InternalEvent for StatsdEventReceived {
 
 #[derive(Debug)]
 pub struct StatsdInvalidRecord<'a> {
-    pub error: crate::sources::statsd::parser::ParseError,
+    pub error: &'a crate::sources::statsd::parser::ParseError,
     pub text: &'a str,
 }
 

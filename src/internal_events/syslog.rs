@@ -1,4 +1,4 @@
-use super::InternalEvent;
+use super::{socket::SocketMode, InternalEvent};
 use metrics::counter;
 
 #[derive(Debug)]
@@ -33,16 +33,17 @@ impl InternalEvent for SyslogUdpReadError {
 }
 
 #[derive(Debug)]
-pub struct SyslogUdpUtf8Error {
+pub(crate) struct SyslogUtf8Error {
+    pub mode: SocketMode,
     pub error: std::str::Utf8Error,
 }
 
-impl InternalEvent for SyslogUdpUtf8Error {
+impl InternalEvent for SyslogUtf8Error {
     fn emit_logs(&self) {
-        error!(message = "Error converting bytes to UTF8 string in UDP mode.", error = ?self.error, internal_log_rate_secs = 10);
+        error!(message = "Error converting bytes to UTF8 string.", error = %self.error, mode = self.mode.as_str(), internal_log_rate_secs = 10);
     }
 
     fn emit_metrics(&self) {
-        counter!("utf8_convert_errors_total", 1, "mode" => "udp");
+        counter!("utf8_convert_errors_total", 1, "mode" => self.mode.as_str());
     }
 }
