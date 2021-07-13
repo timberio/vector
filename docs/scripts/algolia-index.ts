@@ -1,13 +1,10 @@
-import algoliasearch, { SearchIndex } from "algoliasearch";
 import chalk from "chalk";
 import cheerio from "cheerio";
 import { Element } from "domhandler";
 import dotEnv from "dotenv-defaults";
 import fs from "fs";
 import glob from "glob-promise";
-import chunk from "lodash.chunk";
 import path from "path";
-import { title } from "process";
 
 dotEnv.config();
 
@@ -26,6 +23,7 @@ type AlgoliaRecord = {
   itemUrl: string;
   level: number;
   title: string;
+  hierarchy: string[];
   tags: string[];
   ranking: number;
   section: string;
@@ -33,13 +31,9 @@ type AlgoliaRecord = {
 };
 
 // Constants
-
-// @ts-ignore
-const algoliaIndexName = process.env.ALGOLIA_INDEX_NAME || "";
 const targetFile = "./public/search.json";
 
 const DEBUG = process.env.DEBUG === "true" || false;
-const algoliaBatchSize = 100;
 const publicPath = path.resolve(__dirname, "..", "public");
 const tagHierarchy = {
   h1: 6,
@@ -81,6 +75,8 @@ async function indexHTMLFiles(
     const $ = cheerio.load(html);
     const containers = $("#page-content");
     const pageTitle = $('meta[name="algolia:title"]').attr('content') || "";
+
+    const pageTags = $('meta[name="algolia:tags"]').attr('content')?.split(",") || [];
 
     // @ts-ignore
     $(".algolia-no-index").each((_, d) => $(d).remove());
@@ -130,7 +126,8 @@ async function indexHTMLFiles(
           title: item.content,
           section,
           ranking,
-          tags: [],
+          hierarchy: [],
+          tags: pageTags,
           content: "",
         };
       } else if (item.level === 1) {
@@ -151,12 +148,13 @@ async function indexHTMLFiles(
           title: item.content,
           section,
           ranking,
-          tags: [...activeRecord.tags, activeRecord.title],
+          hierarchy: [...activeRecord.hierarchy, activeRecord.title],
+          tags: pageTags,
           content: "",
         };
       } else {
         algoliaRecords.push({ ...activeRecord });
-        const tagCount = activeRecord.tags.length;
+        const tagCount = activeRecord.hierarchy.length;
         const levelDiff = item.level - activeRecord.level;
         const lastIndex = tagCount - levelDiff;
 
@@ -169,12 +167,16 @@ async function indexHTMLFiles(
           title: item.content,
           section,
           ranking,
-          tags: [...activeRecord.tags.slice(0, lastIndex)],
+          hierarchy: [...activeRecord.hierarchy.slice(0, lastIndex)],
+          tags: pageTags,
           content: "",
         };
       }
 
       if (activeRecord) {
+        activeRecord.title = activeRecord.title.trim();
+        activeRecord.hierarchy.map((item) => item.trim());
+
         algoliaRecords.push({ ...activeRecord });
       }
 
@@ -191,7 +193,7 @@ async function indexHTMLFiles(
 
         usedIds[rec.objectID] = true;
 
-        if (rec.level > 1 && rec.level < 6 && rec.tags.length == 0) {
+        if (rec.level > 1 && rec.level < 6 && rec.hierarchy.length == 0) {
           // The h2 -> h5 should have a set of tags that are the "path" within the file.
           if (DEBUG) {
             console.log(chalk.yellow("Found h2 -> h5 with no tags."));
