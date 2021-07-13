@@ -1,10 +1,14 @@
-use crate::udp;
 use crate::{
-    event::Event,
-    internal_events::{SocketEventReceived, SocketMode, SocketReceiveError},
+    event::{Event, LogEvent},
+    internal_events::{
+        SocketDecodeFrameFailed, SocketEventReceived, SocketMode, SocketReceiveError,
+    },
     shutdown::ShutdownSignal,
-    sources::Source,
-    Pipeline,
+    sources::{
+        util::decoding::{DecodingBuilder, DecodingConfig},
+        Source,
+    },
+    udp, Pipeline,
 };
 use bytes::{Bytes, BytesMut};
 use codec::BytesDelimitedCodec;
@@ -28,6 +32,8 @@ pub struct UdpConfig {
     host_key: Option<String>,
     #[get_copy = "pub"]
     receive_buffer_bytes: Option<usize>,
+    #[get = "pub"]
+    decoding: Option<DecodingConfig>,
 }
 
 fn default_max_length() -> usize {
@@ -41,6 +47,7 @@ impl UdpConfig {
             max_length: default_max_length(),
             host_key: None,
             receive_buffer_bytes: None,
+            decoding: None,
         }
     }
 }
@@ -50,12 +57,14 @@ pub fn udp(
     max_length: usize,
     host_key: String,
     receive_buffer_bytes: Option<usize>,
+    decoding: Option<DecodingConfig>,
     mut shutdown: ShutdownSignal,
     out: Pipeline,
-) -> Source {
+) -> crate::Result<Source> {
+    let decode = decoding.build()?;
     let mut out = out.sink_map_err(|error| error!(message = "Error sending event.", %error));
 
-    Box::pin(async move {
+    Ok(Box::pin(async move {
         let socket = UdpSocket::bind(&address)
             .await
             .expect("Failed to bind to udp listener socket");
@@ -91,23 +100,35 @@ pub fn udp(
                     // UDP processes messages per payload, where messages are separated by newline
                     // and stretch to end of payload.
                     let mut decoder = BytesDelimitedCodec::new(b'\n');
-                    while let Ok(Some(line)) = decoder.decode_eof(&mut payload) {
-                        let mut event = Event::from(line);
+                    while let Ok(Some(frame)) = decoder.decode_eof(&mut payload) {
+                        emit!(SocketEventReceived { byte_size, mode:SocketMode::Udp });
 
-                        event
-                            .as_mut_log()
-                            .insert(crate::config::log_schema().source_type_key(), Bytes::from("socket"));
-                        event
-                            .as_mut_log()
-                            .insert(host_key.clone(), address.to_string());
+                        let value = match decode(frame) {
+                            Ok(value) => value,
+                            Err(error) => {
+                                emit!(SocketDecodeFrameFailed {
+                                    mode: SocketMode::Tcp,
+                                    error
+                                });
+                                continue;
+                            }
+                        };
 
-                        emit!(SocketEventReceived { byte_size,mode:SocketMode::Udp });
+                        let mut log = LogEvent::from(value);
+
+                        log.insert(
+                            crate::config::log_schema().source_type_key(),
+                            Bytes::from("socket")
+                        );
+                        log.insert(host_key.clone(), address.to_string());
+
+                        let event = Event::from(log);
 
                         tokio::select!{
-                            result = out.send(event) => {match result {
-                                Ok(()) => { },
+                            result = out.send(event) => match result {
+                                Ok(()) => (),
                                 Err(()) => return Ok(()),
-                            }}
+                            },
                             _ = &mut shutdown => return Ok(()),
                         }
                     }
@@ -115,5 +136,5 @@ pub fn udp(
                 _ = &mut shutdown => return Ok(()),
             }
         }
-    })
+    }))
 }

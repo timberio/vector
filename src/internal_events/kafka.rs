@@ -99,3 +99,18 @@ impl InternalEvent for KafkaStatisticsReceived<'_> {
         );
     }
 }
+
+#[derive(Debug)]
+pub struct KafkaDecodeMessageFailed {
+    pub error: crate::Error,
+}
+
+impl InternalEvent for KafkaDecodeMessageFailed {
+    fn emit_logs(&self) {
+        error!(message = "Failed to decode message.", error = %self.error);
+    }
+
+    fn emit_metrics(&self) {
+        counter!("decode_failed_messages_total", 1);
+    }
+}

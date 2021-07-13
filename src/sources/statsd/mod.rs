@@ -111,7 +111,7 @@ impl SourceConfig for StatsdConfig {
                 )
             }
             #[cfg(unix)]
-            StatsdConfig::Unix(config) => Ok(statsd_unix(config.clone(), cx.shutdown, cx.out)),
+            StatsdConfig::Unix(config) => statsd_unix(config.clone(), cx.shutdown, cx.out),
         }
     }
 
@@ -197,14 +197,19 @@ async fn statsd_udp(
 struct StatsdTcpSource;
 
 impl TcpSource for StatsdTcpSource {
+    type Context = ();
     type Error = std::io::Error;
     type Decoder = BytesDelimitedCodec;
+
+    fn build_context(&self) -> crate::Result<Self::Context> {
+        Ok(())
+    }
 
     fn decoder(&self) -> Self::Decoder {
         BytesDelimitedCodec::new(b'\n')
     }
 
-    fn build_event(&self, line: Bytes, _host: Bytes) -> Option<Event> {
+    fn build_event(&self, _context: &Self::Context, line: Bytes, _host: Bytes) -> Option<Event> {
         let line = String::from_utf8_lossy(line.as_ref());
         parse_event(&line)
     }

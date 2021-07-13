@@ -73,3 +73,18 @@ impl<T: std::fmt::Debug + std::fmt::Display> InternalEvent for StatsdSocketError
         counter!("connection_errors_total", 1);
     }
 }
+
+#[derive(Debug)]
+pub(crate) struct StatsdInvalidUtf8FrameReceived {
+    pub error: std::str::Utf8Error,
+}
+
+impl InternalEvent for StatsdInvalidUtf8FrameReceived {
+    fn emit_logs(&self) {
+        error!(message = "Received frame containing invalid UTF-8.", %self.error);
+    }
+
+    fn emit_metrics(&self) {
+        counter!("invalid_utf8_frames_total", 1);
+    }
+}

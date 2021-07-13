@@ -80,14 +80,24 @@ impl SourceConfig for FluentConfig {
 struct FluentSource;
 
 impl TcpSource for FluentSource {
+    type Context = ();
     type Error = DecodeError;
     type Decoder = FluentDecoder;
+
+    fn build_context(&self) -> crate::Result<Self::Context> {
+        Ok(())
+    }
 
     fn decoder(&self) -> Self::Decoder {
         FluentDecoder::new()
     }
 
-    fn build_event(&self, frame: FluentFrame, host: Bytes) -> Option<Event> {
+    fn build_event(
+        &self,
+        _context: &Self::Context,
+        frame: FluentFrame,
+        host: Bytes,
+    ) -> Option<Event> {
         let mut log = LogEvent::from(frame);
 
         if !log.contains(log_schema().host_key()) {

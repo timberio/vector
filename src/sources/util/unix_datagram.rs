@@ -1,9 +1,12 @@
 use crate::{
     emit,
-    event::Event,
+    event::{Event, Value},
     internal_events::{SocketMode, SocketReceiveError, UnixSocketFileDeleteFailed},
     shutdown::ShutdownSignal,
-    sources::Source,
+    sources::{
+        util::decoding::{DecodingBuilder, DecodingConfig},
+        Source,
+    },
     Pipeline,
 };
 use bytes::{Bytes, BytesMut};
@@ -22,15 +25,27 @@ pub fn build_unix_datagram_source<D>(
     max_length: usize,
     host_key: String,
     decoder: D,
+    decoding: Option<DecodingConfig>,
     shutdown: ShutdownSignal,
     out: Pipeline,
-    build_event: impl Fn(&str, Option<Bytes>, &str) -> Option<Event> + Clone + Send + Sync + 'static,
-) -> Source
+    build_event: impl Fn(
+            &str,
+            Option<Bytes>,
+            Bytes,
+            &(dyn Fn(Bytes) -> crate::Result<Value> + Send + Sync),
+        ) -> Option<Event>
+        + Clone
+        + Send
+        + Sync
+        + 'static,
+) -> crate::Result<Source>
 where
     D: Decoder<Item = String> + Clone + Send + 'static,
     D::Error: From<std::io::Error> + std::fmt::Debug + std::fmt::Display + Send,
 {
-    Box::pin(async move {
+    let decode = decoding.build()?;
+
+    Ok(Box::pin(async move {
         let socket = UnixDatagram::bind(&listen_path).expect("Failed to bind to datagram socket");
         info!(message = "Listening.", path = ?listen_path, r#type = "unix_datagram");
 
@@ -39,6 +54,7 @@ where
             max_length,
             host_key,
             decoder,
+            decode,
             shutdown,
             out,
             build_event,
@@ -54,7 +70,7 @@ where
         }
 
         result
-    })
+    }))
 }
 
 async fn listen<D>(
@@ -62,9 +78,19 @@ async fn listen<D>(
     max_length: usize,
     host_key: String,
     mut decoder: D,
+    decode: impl Fn(Bytes) -> crate::Result<Value> + Send + Sync,
     mut shutdown: ShutdownSignal,
     out: Pipeline,
-    build_event: impl Fn(&str, Option<Bytes>, &str) -> Option<Event> + Clone + Send + Sync + 'static,
+    build_event: impl Fn(
+            &str,
+            Option<Bytes>,
+            Bytes,
+            &(dyn Fn(Bytes) -> crate::Result<Value> + Send + Sync),
+        ) -> Option<Event>
+        + Clone
+        + Send
+        + Sync
+        + 'static,
 ) -> Result<(), ()>
 where
     D: Decoder<Item = String> + Clone + Send + 'static,
@@ -92,7 +118,8 @@ where
                     path.map(|p| p.to_string_lossy().into_owned().into());
 
                 while let Ok(Some(line)) = decoder.decode_eof(&mut payload) {
-                    if let Some(event) = build_event(&host_key, received_from.clone(), &line) {
+                    let frame = Bytes::from(line);
+                    if let Some(event) = build_event(&host_key, received_from.clone(), frame, &decode) {
                         out.send(event).await?;
                     }
                 }

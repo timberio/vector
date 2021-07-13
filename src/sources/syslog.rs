@@ -8,7 +8,9 @@ use crate::{
         SourceDescription,
     },
     event::{Event, Value},
-    internal_events::{SyslogEventReceived, SyslogUdpReadError, SyslogUdpUtf8Error},
+    internal_events::{
+        SocketMode, SyslogEventReceived, SyslogInvalidUtf8FrameReceived, SyslogUdpReadError,
+    },
     shutdown::ShutdownSignal,
     tcp::TcpKeepaliveConfig,
     tls::{MaybeTlsSettings, TlsConfig},
@@ -136,14 +138,24 @@ impl SourceConfig for SyslogConfig {
                 cx.out,
             )),
             #[cfg(unix)]
-            Mode::Unix { path } => Ok(build_unix_stream_source(
+            Mode::Unix { path } => build_unix_stream_source(
                 path,
                 SyslogDecoder::new(self.max_length),
                 host_key,
+                None,
                 cx.shutdown,
                 cx.out,
-                |host_key, default_host, line| Some(event_from_str(host_key, default_host, line)),
-            )),
+                |host_key, default_host, frame, _| match std::str::from_utf8(&frame) {
+                    Ok(line) => Some(event_from_str(host_key, default_host, line)),
+                    Err(error) => {
+                        emit!(SyslogInvalidUtf8FrameReceived {
+                            mode: SocketMode::Unix,
+                            error
+                        });
+                        None
+                    }
+                },
+            ),
         }
     }
 
@@ -172,14 +184,19 @@ struct SyslogTcpSource {
 }
 
 impl TcpSource for SyslogTcpSource {
+    type Context = ();
     type Error = LinesCodecError;
     type Decoder = SyslogDecoder;
+
+    fn build_context(&self) -> crate::Result<Self::Context> {
+        Ok(())
+    }
 
     fn decoder(&self) -> Self::Decoder {
         SyslogDecoder::new(self.max_length)
     }
 
-    fn build_event(&self, frame: String, host: Bytes) -> Option<Event> {
+    fn build_event(&self, _context: &Self::Context, frame: String, host: Bytes) -> Option<Event> {
         Some(event_from_str(&self.host_key, Some(host), &frame))
     }
 }
@@ -429,7 +446,12 @@ pub fn udp(
                             let received_from = received_from.ip().to_string().into();
 
                             std::str::from_utf8(&bytes)
-                                .map_err(|error| emit!(SyslogUdpUtf8Error { error }))
+                                .map_err(|error| {
+                                    emit!(SyslogInvalidUtf8FrameReceived {
+                                        mode: SocketMode::Udp,
+                                        error
+                                    })
+                                })
                                 .ok()
                                 .map(|s| Ok(event_from_str(&host_key, Some(received_from), s)))
                         }

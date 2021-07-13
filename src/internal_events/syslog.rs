@@ -1,4 +1,4 @@
-use super::InternalEvent;
+use super::{InternalEvent, SocketMode};
 use metrics::counter;
 
 #[derive(Debug)]
@@ -33,16 +33,17 @@ impl InternalEvent for SyslogUdpReadError {
 }
 
 #[derive(Debug)]
-pub struct SyslogUdpUtf8Error {
+pub(crate) struct SyslogInvalidUtf8FrameReceived {
+    pub mode: SocketMode,
     pub error: std::str::Utf8Error,
 }
 
-impl InternalEvent for SyslogUdpUtf8Error {
+impl InternalEvent for SyslogInvalidUtf8FrameReceived {
     fn emit_logs(&self) {
-        error!(message = "Error converting bytes to UTF8 string in UDP mode.", error = ?self.error, internal_log_rate_secs = 10);
+        error!(message = "Received frame containing invalid UTF-8.", error = %self.error, internal_log_rate_secs = 10);
     }
 
     fn emit_metrics(&self) {
-        counter!("utf8_convert_errors_total", 1, "mode" => "udp");
+        counter!("invalid_utf8_frames_total", 1, "mode" => self.mode.as_str());
     }
 }

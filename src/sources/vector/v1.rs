@@ -84,14 +84,24 @@ impl VectorConfig {
 struct VectorSource;
 
 impl TcpSource for VectorSource {
+    type Context = ();
     type Error = std::io::Error;
     type Decoder = LengthDelimitedCodec;
+
+    fn build_context(&self) -> crate::Result<Self::Context> {
+        Ok(())
+    }
 
     fn decoder(&self) -> Self::Decoder {
         LengthDelimitedCodec::new()
     }
 
-    fn build_event(&self, frame: BytesMut, _host: Bytes) -> Option<Event> {
+    fn build_event(
+        &self,
+        _context: &Self::Context,
+        frame: BytesMut,
+        _host: Bytes,
+    ) -> Option<Event> {
         let byte_size = frame.len();
         match proto::EventWrapper::decode(frame).map(Event::from) {
             Ok(event) => {

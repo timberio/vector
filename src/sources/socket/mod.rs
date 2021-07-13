@@ -99,40 +99,43 @@ impl SourceConfig for SocketConfig {
                     .host_key()
                     .clone()
                     .unwrap_or_else(|| log_schema().host_key().to_string());
-                Ok(udp::udp(
+                udp::udp(
                     config.address(),
                     config.max_length(),
                     host_key,
                     config.receive_buffer_bytes(),
+                    config.decoding().clone(),
                     cx.shutdown,
                     cx.out,
-                ))
+                )
             }
             #[cfg(unix)]
             Mode::UnixDatagram(config) => {
                 let host_key = config
                     .host_key
                     .unwrap_or_else(|| log_schema().host_key().to_string());
-                Ok(unix::unix_datagram(
+                unix::unix_datagram(
                     config.path,
                     config.max_length,
                     host_key,
+                    config.decoding,
                     cx.shutdown,
                     cx.out,
-                ))
+                )
             }
             #[cfg(unix)]
             Mode::UnixStream(config) => {
                 let host_key = config
                     .host_key
                     .unwrap_or_else(|| log_schema().host_key().to_string());
-                Ok(unix::unix_stream(
+                unix::unix_stream(
                     config.path,
                     config.max_length,
                     host_key,
+                    config.decoding,
                     cx.shutdown,
                     cx.out,
-                ))
+                )
             }
         }
     }

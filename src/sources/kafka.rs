@@ -1,7 +1,13 @@
-use super::util::finalizer::OrderedFinalizer;
+use super::util::{
+    decoding::{DecodingBuilder, DecodingConfig},
+    finalizer::OrderedFinalizer,
+};
 use crate::{
     config::{log_schema, DataType, SourceConfig, SourceContext, SourceDescription},
-    internal_events::{KafkaEventFailed, KafkaEventReceived, KafkaOffsetUpdateFailed},
+    event::{BatchNotifier, LogEvent, Value},
+    internal_events::{
+        KafkaDecodeMessageFailed, KafkaEventFailed, KafkaEventReceived, KafkaOffsetUpdateFailed,
+    },
     kafka::{KafkaAuthConfig, KafkaStatisticsContext},
     shutdown::ShutdownSignal,
     Pipeline,
@@ -19,7 +25,6 @@ use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
-use vector_core::event::{BatchNotifier, LogEvent, Value};
 
 #[derive(Debug, Snafu)]
 enum BuildError {
@@ -58,6 +63,7 @@ pub struct KafkaSourceConfig {
     librdkafka_options: Option<HashMap<String, String>>,
     #[serde(flatten)]
     auth: KafkaAuthConfig,
+    decoding: Option<DecodingConfig>,
 }
 
 fn default_session_timeout_ms() -> u64 {
@@ -111,6 +117,7 @@ impl_generate_config_from_default!(KafkaSourceConfig);
 impl SourceConfig for KafkaSourceConfig {
     async fn build(&self, cx: SourceContext) -> crate::Result<super::Source> {
         let consumer = create_consumer(self)?;
+        let decode = self.decoding.build()?;
 
         Ok(Box::pin(kafka_source(
             consumer,
@@ -122,6 +129,7 @@ impl SourceConfig for KafkaSourceConfig {
             cx.shutdown,
             cx.out,
             cx.acknowledgements,
+            decode,
         )))
     }
 
@@ -144,6 +152,7 @@ async fn kafka_source(
     shutdown: ShutdownSignal,
     mut out: Pipeline,
     acknowledgements: bool,
+    decode: impl Fn(Bytes) -> crate::Result<Value> + Send,
 ) -> Result<(), ()> {
     let consumer = Arc::new(consumer);
     let shutdown = shutdown.shared();
@@ -167,10 +176,15 @@ async fn kafka_source(
                 };
                 let mut log = LogEvent::default();
 
-                log.insert(
-                    log_schema().message_key(),
-                    Value::from(Bytes::from(payload.to_owned())),
-                );
+                let message = match decode(Bytes::from(payload.to_owned())) {
+                    Ok(message) => message,
+                    Err(error) => {
+                        emit!(KafkaDecodeMessageFailed { error });
+                        continue;
+                    }
+                };
+
+                log.insert(log_schema().message_key(), message);
 
                 // Extract timestamp from kafka message
                 let timestamp = msg
@@ -447,6 +461,7 @@ mod integration_test {
             shutdown,
             tx,
             acknowledgements,
+            None.build().unwrap(),
         ));
         let events = collect_n(rx, 10).await;
         drop(trigger_shutdown);

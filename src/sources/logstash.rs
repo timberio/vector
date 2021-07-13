@@ -83,8 +83,13 @@ struct LogstashSource {
 }
 
 impl TcpSource for LogstashSource {
+    type Context = ();
     type Error = DecodeError;
     type Decoder = LogstashDecoder;
+
+    fn build_context(&self) -> crate::Result<Self::Context> {
+        Ok(())
+    }
 
     fn decoder(&self) -> Self::Decoder {
         LogstashDecoder::new()
@@ -99,7 +104,12 @@ impl TcpSource for LogstashSource {
         Bytes::from(bytes)
     }
 
-    fn build_event(&self, frame: LogstashEventFrame, host: Bytes) -> Option<Event> {
+    fn build_event(
+        &self,
+        _context: &Self::Context,
+        frame: LogstashEventFrame,
+        host: Bytes,
+    ) -> Option<Event> {
         let mut log = LogEvent::from(
             frame
                 .fields

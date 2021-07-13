@@ -261,6 +261,17 @@ impl From<String> for LogEvent {
     }
 }
 
+impl From<Value> for LogEvent {
+    fn from(value: Value) -> Self {
+        let mut log = LogEvent::default();
+
+        log.insert(log_schema().message_key(), value);
+        log.insert(log_schema().timestamp_key(), Utc::now());
+
+        log
+    }
+}
+
 impl From<BTreeMap<String, Value>> for LogEvent {
     fn from(map: BTreeMap<String, Value>) -> Self {
         LogEvent {

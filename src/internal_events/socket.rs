@@ -10,7 +10,7 @@ pub(crate) enum SocketMode {
 }
 
 impl SocketMode {
-    fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             Self::Tcp => "tcp",
             Self::Udp => "udp",
@@ -66,5 +66,21 @@ impl InternalEvent for SocketReceiveError {
 
     fn emit_metrics(&self) {
         counter!("connection_errors_total", 1, "mode" => self.mode.as_str());
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct SocketDecodeFrameFailed {
+    pub mode: SocketMode,
+    pub error: crate::Error,
+}
+
+impl InternalEvent for SocketDecodeFrameFailed {
+    fn emit_logs(&self) {
+        error!(message = "Failed decoding frame.", %self.error, mode = %self.mode.as_str());
+    }
+
+    fn emit_metrics(&self) {
+        counter!("decode_failed_frames_total", 1, "mode" => self.mode.as_str());
     }
 }

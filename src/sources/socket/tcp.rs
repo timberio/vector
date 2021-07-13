@@ -1,7 +1,10 @@
 use crate::{
-    event::Event,
-    internal_events::{SocketEventReceived, SocketMode},
-    sources::util::{SocketListenAddr, TcpSource},
+    event::{Event, LogEvent, Value},
+    internal_events::{SocketDecodeFrameFailed, SocketEventReceived, SocketMode},
+    sources::util::{
+        decoding::{DecodingBuilder, DecodingConfig},
+        SocketListenAddr, TcpSource,
+    },
     tcp::TcpKeepaliveConfig,
     tls::TlsConfig,
 };
@@ -28,6 +31,7 @@ pub struct TcpConfig {
     tls: Option<TlsConfig>,
     #[get_copy = "pub"]
     receive_buffer_bytes: Option<usize>,
+    decoding: Option<DecodingConfig>,
 }
 
 fn default_max_length() -> usize {
@@ -47,6 +51,7 @@ impl TcpConfig {
         host_key: Option<String>,
         tls: Option<TlsConfig>,
         receive_buffer_bytes: Option<usize>,
+        decoding: Option<DecodingConfig>,
     ) -> Self {
         Self {
             address,
@@ -56,6 +61,7 @@ impl TcpConfig {
             host_key,
             tls,
             receive_buffer_bytes,
+            decoding,
         }
     }
 
@@ -68,6 +74,7 @@ impl TcpConfig {
             host_key: None,
             tls: None,
             receive_buffer_bytes: None,
+            decoding: None,
         }
     }
 }
@@ -77,34 +84,61 @@ pub struct RawTcpSource {
     pub config: TcpConfig,
 }
 
+pub struct RawTcpSourceContext {
+    pub source_type: Bytes,
+    pub host_key: String,
+    pub decode: Box<dyn Fn(Bytes) -> crate::Result<Value> + Send + Sync>,
+}
+
 impl TcpSource for RawTcpSource {
+    type Context = RawTcpSourceContext;
     type Error = std::io::Error;
     type Decoder = BytesDelimitedCodec;
+
+    fn build_context(&self) -> crate::Result<Self::Context> {
+        Ok(Self::Context {
+            source_type: Bytes::from("socket"),
+            host_key: self
+                .config
+                .host_key
+                .clone()
+                .unwrap_or_else(|| crate::config::log_schema().host_key().to_owned()),
+            decode: self.config.decoding.build()?,
+        })
+    }
 
     fn decoder(&self) -> Self::Decoder {
         BytesDelimitedCodec::new_with_max_length(b'\n', self.config.max_length)
     }
 
-    fn build_event(&self, frame: Bytes, host: Bytes) -> Option<Event> {
+    fn build_event(&self, context: &Self::Context, frame: Bytes, host: Bytes) -> Option<Event> {
         let byte_size = frame.len();
-        let mut event = Event::from(frame);
-
-        event.as_mut_log().insert(
-            crate::config::log_schema().source_type_key(),
-            Bytes::from("socket"),
-        );
-
-        let host_key = (self.config.host_key.clone())
-            .unwrap_or_else(|| crate::config::log_schema().host_key().to_string());
-
-        event.as_mut_log().insert(host_key, host);
 
         emit!(SocketEventReceived {
             byte_size,
             mode: SocketMode::Tcp
         });
 
-        Some(event)
+        let value = match (context.decode)(frame) {
+            Ok(value) => value,
+            Err(error) => {
+                emit!(SocketDecodeFrameFailed {
+                    mode: SocketMode::Tcp,
+                    error
+                });
+                return None;
+            }
+        };
+
+        let mut log = LogEvent::from(value);
+
+        log.insert(
+            crate::config::log_schema().source_type_key(),
+            context.source_type.clone(),
+        );
+        log.insert(context.host_key.clone(), host);
+
+        Some(Event::from(log))
     }
 }
 

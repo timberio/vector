@@ -73,14 +73,22 @@ pub trait TcpSource: Clone + Send + Sync + 'static
 where
     <<Self as TcpSource>::Decoder as tokio_util::codec::Decoder>::Item: std::marker::Send,
 {
+    type Context: Send + Sync;
     // Should be default: `std::io::Error`.
     // Right now this is unstable: https://github.com/rust-lang/rust/issues/29661
     type Error: From<io::Error> + IsErrorFatal + std::fmt::Debug + std::fmt::Display + Send;
-    type Decoder: Decoder<Error = Self::Error> + Send + 'static + Send;
+    type Decoder: Decoder<Error = Self::Error> + Send + 'static;
+
+    fn build_context(&self) -> crate::Result<Self::Context>;
 
     fn decoder(&self) -> Self::Decoder;
 
-    fn build_event(&self, frame: <Self::Decoder as Decoder>::Item, host: Bytes) -> Option<Event>;
+    fn build_event(
+        &self,
+        context: &Self::Context,
+        frame: <Self::Decoder as Decoder>::Item,
+        host: Bytes,
+    ) -> Option<Event>;
 
     fn build_ack(&self, _frame: &<Self::Decoder as Decoder>::Item) -> Bytes {
         Bytes::new()
@@ -202,6 +210,14 @@ async fn handle_stream<T>(
     <<T as TcpSource>::Decoder as tokio_util::codec::Decoder>::Item: std::marker::Send,
     T: TcpSource,
 {
+    let context = match source.build_context() {
+        Ok(context) => context,
+        Err(error) => {
+            error!(message = "Failed building source context.", %error);
+            return;
+        }
+    };
+
     tokio::select! {
         result = socket.handshake() => {
             if let Err(error) = result {
@@ -253,7 +269,7 @@ async fn handle_stream<T>(
                         let host = host.clone();
                         let ack = source.build_ack(&frame);
 
-                        if let Some(event) = source.build_event(frame, host) {
+                        if let Some(event) = source.build_event(&context, frame, host) {
                             match out.send(event).await {
                                 Ok(_) => {
                                     let stream = reader.get_mut();
