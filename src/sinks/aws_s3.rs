@@ -22,7 +22,7 @@ use lazy_static::lazy_static;
 use md5::Digest;
 use rusoto_core::RusotoError;
 use rusoto_s3::{
-    HeadBucketRequest, PutObjectError, PutObjectOutput, PutObjectRequest, S3Client, S3,
+    PutObjectError, PutObjectOutput, PutObjectRequest, S3Client, S3,
 };
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
@@ -239,9 +239,11 @@ impl S3SinkConfig {
     }
 
     pub async fn healthcheck(self, client: S3Client) -> crate::Result<()> {
-        let req = client.head_bucket(HeadBucketRequest {
+        let req = client.put_object(PutObjectRequest{
             bucket: self.bucket.clone(),
-            expected_bucket_owner: None,
+            key: ".healthcheck".to_string(),
+            body: None,
+            ..Default::default()
         });
 
         match req.await {
