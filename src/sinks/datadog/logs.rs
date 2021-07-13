@@ -1,6 +1,8 @@
 use super::ApiKey;
 use crate::{
-    config::{log_schema, DataType, GenerateConfig, SinkConfig, SinkContext, SinkDescription},
+    config::{
+        log_schema, DataType, GenerateConfig, ProxyConfig, SinkConfig, SinkContext, SinkDescription,
+    },
     event::Event,
     http::HttpClient,
     internal_events::DatadogLogEventProcessed,
@@ -48,6 +50,11 @@ pub struct DatadogLogsConfig {
 
     #[serde(default)]
     request: TowerRequestConfig,
+    #[serde(
+        default,
+        skip_serializing_if = "crate::serde::skip_serializing_if_default"
+    )]
+    proxy: ProxyConfig,
 }
 
 #[derive(Clone)]
@@ -134,7 +141,8 @@ impl DatadogLogsConfig {
             false,
         )?;
 
-        let client = HttpClient::new(tls_settings)?;
+        let proxy = cx.globals.proxy.build(&self.proxy);
+        let client = HttpClient::new(tls_settings, proxy)?;
         let healthcheck = healthcheck(
             service.clone(),
             client.clone(),

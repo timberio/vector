@@ -1,5 +1,5 @@
 use crate::{
-    config::{DataType, GlobalOptions, TransformConfig, TransformDescription},
+    config::{DataType, GlobalOptions, ProxyConfig, TransformConfig, TransformDescription},
     event::Event,
     http::HttpClient,
     internal_events::{AwsEc2MetadataRefreshFailed, AwsEc2MetadataRefreshSuccessful},
@@ -78,6 +78,11 @@ pub struct Ec2Metadata {
     namespace: Option<String>,
     refresh_interval_secs: Option<u64>,
     fields: Option<Vec<String>>,
+    #[serde(
+        default,
+        skip_serializing_if = "crate::serde::skip_serializing_if_default"
+    )]
+    proxy: ProxyConfig,
 }
 
 #[derive(Clone, Debug)]
@@ -140,7 +145,7 @@ impl TransformConfig for Ec2Metadata {
             .clone()
             .unwrap_or_else(|| DEFAULT_FIELD_WHITELIST.clone());
 
-        let http_client = HttpClient::new(None)?;
+        let http_client = HttpClient::new(None, self.proxy.clone())?;
 
         let mut client =
             MetadataClient::new(http_client, host, keys, write, refresh_interval, fields);

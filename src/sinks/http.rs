@@ -1,5 +1,5 @@
 use crate::{
-    config::{DataType, GenerateConfig, SinkConfig, SinkContext, SinkDescription},
+    config::{DataType, GenerateConfig, ProxyConfig, SinkConfig, SinkContext, SinkDescription},
     event::Event,
     http::{Auth, HttpClient, MaybeAuth},
     internal_events::{HttpEventEncoded, HttpEventMissingMessage},
@@ -55,6 +55,11 @@ pub struct HttpSinkConfig {
     #[serde(default)]
     pub request: RequestConfig,
     pub tls: Option<TlsOptions>,
+    #[serde(
+        default,
+        skip_serializing_if = "crate::serde::skip_serializing_if_default"
+    )]
+    pub proxy: ProxyConfig,
 }
 
 #[cfg(test)]
@@ -69,6 +74,7 @@ fn default_config(e: Encoding) -> HttpSinkConfig {
         encoding: e.into(),
         request: Default::default(),
         tls: Default::default(),
+        proxy: Default::default(),
     }
 }
 
@@ -126,7 +132,8 @@ impl SinkConfig for HttpSinkConfig {
         cx: SinkContext,
     ) -> crate::Result<(super::VectorSink, super::Healthcheck)> {
         let tls = TlsSettings::from_options(&self.tls)?;
-        let client = HttpClient::new(tls)?;
+        let proxy = cx.globals.proxy.build(&self.proxy);
+        let client = HttpClient::new(tls, proxy)?;
 
         let healthcheck = match cx.healthcheck.uri.clone() {
             Some(healthcheck_uri) => {
@@ -333,6 +340,22 @@ mod tests {
     #[test]
     fn generate_config() {
         crate::test_util::test_generate_config::<HttpSinkConfig>();
+    }
+
+    #[test]
+    fn http_proxy_config() {
+        let config = r#"
+        uri = "http://$IN_ADDR/frames"
+        encoding = "text"
+        [proxy]
+        http = "somewhere:1234"
+        https = "nowhere:2345"
+        no_proxy = ["foo.bar"]
+        "#;
+        let config: HttpSinkConfig = toml::from_str(config).unwrap();
+        assert_eq!(config.proxy.http, Some("somewhere:1234".into()));
+        assert_eq!(config.proxy.https, Some("nowhere:2345".into()));
+        assert_eq!(config.proxy.no_proxy.len(), 1);
     }
 
     #[test]

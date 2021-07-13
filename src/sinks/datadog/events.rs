@@ -1,6 +1,8 @@
 use super::{healthcheck, ApiKey};
 use crate::{
-    config::{log_schema, DataType, GenerateConfig, SinkConfig, SinkContext, SinkDescription},
+    config::{
+        log_schema, DataType, GenerateConfig, ProxyConfig, SinkConfig, SinkContext, SinkDescription,
+    },
     event::{Event, PathComponent},
     http::HttpClient,
     internal_events::{DatadogEventsFieldInvalid, DatadogEventsProcessed},
@@ -36,6 +38,11 @@ pub struct DatadogEventsConfig {
 
     #[serde(default)]
     request: TowerRequestConfig<Concurrency>,
+    #[serde(
+        default,
+        skip_serializing_if = "crate::serde::skip_serializing_if_default"
+    )]
+    proxy: ProxyConfig,
 }
 
 fn default_site() -> String {
@@ -94,7 +101,8 @@ impl DatadogEventsConfig {
             false,
         )?;
 
-        let client = HttpClient::new(tls_settings)?;
+        let proxy = cx.globals.proxy.build(&self.proxy);
+        let client = HttpClient::new(tls_settings, proxy)?;
         let healthcheck = healthcheck(
             self.get_api_endpoint(),
             self.default_api_key.clone(),

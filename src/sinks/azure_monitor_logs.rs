@@ -1,5 +1,5 @@
 use crate::{
-    config::{log_schema, DataType, SinkConfig, SinkContext, SinkDescription},
+    config::{log_schema, DataType, ProxyConfig, SinkConfig, SinkContext, SinkDescription},
     event::{Event, Value},
     http::HttpClient,
     sinks::{
@@ -48,6 +48,11 @@ pub struct AzureMonitorLogsConfig {
     #[serde(default)]
     pub request: TowerRequestConfig,
     pub tls: Option<TlsOptions>,
+    #[serde(
+        default,
+        skip_serializing_if = "crate::serde::skip_serializing_if_default"
+    )]
+    pub proxy: ProxyConfig,
 }
 
 #[derive(Deserialize, Serialize, Debug, Eq, PartialEq, Clone, Derivative)]
@@ -111,7 +116,8 @@ impl SinkConfig for AzureMonitorLogsConfig {
         }
 
         let tls_settings = TlsSettings::from_options(&self.tls)?;
-        let client = HttpClient::new(Some(tls_settings))?;
+        let proxy = cx.globals.proxy.build(&self.proxy);
+        let client = HttpClient::new(Some(tls_settings), proxy)?;
 
         let sink = AzureMonitorLogsSink::new(self)?;
         let request_settings = self.request.unwrap_with(&REQUEST_DEFAULTS);

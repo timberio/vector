@@ -1,5 +1,5 @@
 use crate::{
-    config::{DataType, SinkConfig, SinkContext, SinkDescription},
+    config::{DataType, ProxyConfig, SinkConfig, SinkContext, SinkDescription},
     event::{
         metric::{Metric, MetricValue, Sample, StatisticKind},
         Event,
@@ -56,6 +56,11 @@ pub struct InfluxDbConfig {
     pub request: TowerRequestConfig,
     pub tags: Option<HashMap<String, String>>,
     pub tls: Option<TlsOptions>,
+    #[serde(
+        default,
+        skip_serializing_if = "crate::serde::skip_serializing_if_default"
+    )]
+    pub proxy: ProxyConfig,
     #[serde(default = "default_summary_quantiles")]
     pub quantiles: Vec<f64>,
 }
@@ -88,7 +93,8 @@ impl_generate_config_from_default!(InfluxDbConfig);
 impl SinkConfig for InfluxDbConfig {
     async fn build(&self, cx: SinkContext) -> crate::Result<(VectorSink, Healthcheck)> {
         let tls_settings = TlsSettings::from_options(&self.tls)?;
-        let client = HttpClient::new(tls_settings)?;
+        let proxy = cx.globals.proxy.build(&self.proxy);
+        let client = HttpClient::new(tls_settings, proxy)?;
         let healthcheck = healthcheck(
             self.clone().endpoint,
             self.clone().influxdb1_settings,

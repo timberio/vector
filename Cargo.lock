@@ -3079,6 +3079,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "hyper-proxy"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca815a891b24fdfb243fa3239c86154392b0953ee584aa1a2a1f66d20cbe75cc"
+dependencies = [
+ "bytes 1.0.1",
+ "futures 0.3.15",
+ "headers",
+ "http",
+ "hyper",
+ "openssl",
+ "tokio",
+ "tokio-openssl",
+ "tower-service",
+]
+
+[[package]]
 name = "hyper-rustls"
 version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8201,6 +8218,7 @@ dependencies = [
  "httpmock",
  "hyper",
  "hyper-openssl",
+ "hyper-proxy",
  "indexmap",
  "indoc",
  "infer",

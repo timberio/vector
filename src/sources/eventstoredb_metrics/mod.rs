@@ -1,11 +1,11 @@
 use self::types::Stats;
-use crate::internal_events::{
-    EventStoreDbMetricsHttpError, EventStoreDbMetricsReceived, EventStoreDbStatsParsingError,
-};
 use crate::{
-    config::{self, SourceConfig, SourceContext, SourceDescription},
+    config::{self, ProxyConfig, SourceConfig, SourceContext, SourceDescription},
     event::Event,
     http::HttpClient,
+    internal_events::{
+        EventStoreDbMetricsHttpError, EventStoreDbMetricsReceived, EventStoreDbStatsParsingError,
+    },
     tls::TlsSettings,
 };
 use futures::{stream, FutureExt, SinkExt, StreamExt};
@@ -24,6 +24,11 @@ struct EventStoreDbConfig {
     #[serde(default = "default_scrape_interval_secs")]
     scrape_interval_secs: u64,
     default_namespace: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "crate::serde::skip_serializing_if_default"
+    )]
+    proxy: ProxyConfig,
 }
 
 pub fn default_scrape_interval_secs() -> u64 {
@@ -48,6 +53,7 @@ impl SourceConfig for EventStoreDbConfig {
             self.endpoint.as_str(),
             self.scrape_interval_secs,
             self.default_namespace.clone(),
+            cx.globals.proxy.build(&self.proxy),
             cx,
         )
     }
@@ -65,6 +71,7 @@ fn eventstoredb(
     endpoint: &str,
     interval: u64,
     namespace: Option<String>,
+    proxy: ProxyConfig,
     cx: SourceContext,
 ) -> crate::Result<super::Source> {
     let mut out = cx
@@ -73,7 +80,7 @@ fn eventstoredb(
     let mut ticks = IntervalStream::new(tokio::time::interval(Duration::from_secs(interval)))
         .take_until(cx.shutdown);
     let tls_settings = TlsSettings::from_options(&None)?;
-    let client = HttpClient::new(tls_settings)?;
+    let client = HttpClient::new(tls_settings, proxy)?;
     let url: Uri = endpoint.parse()?;
 
     Ok(Box::pin(

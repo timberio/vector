@@ -13,7 +13,9 @@
 //! does not match, we will add a default label `{agent="vector"}`.
 
 use crate::{
-    config::{log_schema, DataType, GenerateConfig, SinkConfig, SinkContext, SinkDescription},
+    config::{
+        log_schema, DataType, GenerateConfig, ProxyConfig, SinkConfig, SinkContext, SinkDescription,
+    },
     event::{self, Event, Value},
     http::{Auth, HttpClient, MaybeAuth},
     sinks::util::{
@@ -56,6 +58,11 @@ pub struct LokiConfig {
     batch: BatchConfig,
 
     tls: Option<TlsOptions>,
+    #[serde(
+        default,
+        skip_serializing_if = "crate::serde::skip_serializing_if_default"
+    )]
+    proxy: ProxyConfig,
 }
 
 #[derive(Clone, Debug, Derivative, Deserialize, Serialize)]
@@ -112,7 +119,8 @@ impl SinkConfig for LokiConfig {
             .timeout(1)
             .parse_config(self.batch)?;
         let tls = TlsSettings::from_options(&self.tls)?;
-        let client = HttpClient::new(tls)?;
+        let proxy = cx.globals.proxy.build(&self.proxy);
+        let client = HttpClient::new(tls, proxy)?;
 
         let config = LokiConfig {
             auth: self.auth.choose_one(&self.endpoint.auth)?,
@@ -408,7 +416,8 @@ mod tests {
         tokio::spawn(server);
 
         let tls = TlsSettings::from_options(&config.tls).expect("could not create TLS settings");
-        let client = HttpClient::new(tls).expect("could not create HTTP client");
+        let client =
+            HttpClient::new(tls, ProxyConfig::default()).expect("could not create HTTP client");
 
         healthcheck(config.clone(), client)
             .await

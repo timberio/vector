@@ -831,6 +831,7 @@ mod tests {
             batch: BatchConfig::default(),
             request: TowerRequestConfig::default(),
             tls: None,
+            proxy: Default::default(),
         }
         .build(SinkContext::new_test())
         .await
