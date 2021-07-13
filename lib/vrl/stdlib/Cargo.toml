@@ -62,6 +62,7 @@ default = [
     "encode_percent",
     "ends_with",
     "exists",
+    "filter_array",
     "flatten",
     "float",
     "floor",
@@ -173,6 +174,7 @@ encode_logfmt = ["encode_key_value"]
 encode_percent = ["percent-encoding"]
 ends_with = []
 exists = []
+filter_array = ["regex"]
 flatten = []
 float = []
 floor = []
