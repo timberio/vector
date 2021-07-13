@@ -1,0 +1,105 @@
+use crate::ast::*;
+use crate::lexer::*;
+use parsing::value::Value;
+use lookup::{LookupBuf, SegmentBuf, FieldBuf};
+grammar<'err, 'input>(input: &'input str);
+
+extern {
+    type Location = usize;
+    type Error = Error;
+
+    enum Tok<'input> {
+        "identifier" => Token::Identifier(<&'input str>),
+        "extended identifier" => Token::ExtendedIdentifier(<&'input str>),
+        "string literal" => Token::StringLiteral(<StringLiteral<&'input str>>),
+        "integer literal" => Token::IntegerLiteral(<i64>),
+        "float literal" => Token::FloatLiteral(<f64>),
+
+        "null" => Token::Null,
+        "true" => Token::True,
+        "false" => Token::False,
+
+        "," => Token::Comma,
+        ":" => Token::Colon,
+        "." => Token::Dot,
+        "%{" => Token::LRule,
+        "}" => Token::RRule,
+        "[" => Token::LBracket,
+        "]" => Token::RBracket,
+        "(" => Token::LParen,
+        ")" => Token::RParen,
+    }
+}
+
+pub GrokFilter: GrokPattern = "%{" <match_fn:FunctionOrRef> <fp:(DestinationAndFilter)?> "}" => GrokPattern{ match_fn, destination: fp };
+
+DestinationAndFilter: Destination = ":" <path:Lookup> <filter_fn:(FilterFn)?> => Destination {path: path, filter_fn};
+
+FilterFn: Function = ":" <FunctionOrRef>;
+
+Lookup: LookupBuf = {
+  <s: PathSegment> <l: Lookup?> => match l {
+    None => LookupBuf::from(s),
+    Some(mut l) => {
+      l.push_front(s);
+      l
+    }
+  }
+}
+
+PathSegment: SegmentBuf = {
+    "."? <Field> =>  SegmentBuf::field(<>), // DD path can't start with `.` but the grammar is simpler this way
+    "[" <String> "]" => SegmentBuf::field(FieldBuf::from(<>)),
+};
+
+Field: FieldBuf = {
+    Identifier => FieldBuf::from(<>),
+    ExtendedIdentifier => FieldBuf::from(<>),
+};
+
+FunctionOrRef: Function = <name:QualifiedName> <args:ArgsList?> => Function { name, args };
+
+QualifiedName: String = <start:Identifier> <end:("." Identifier)*> => {
+    let mut name = start.to_owned();
+    if !end.is_empty() {
+        name.push_str(".");
+        let rest: String = end.iter().map(|(t, s)| s.to_string()).collect::<Vec<String>>().join(".");
+        name.push_str(rest.as_ref());
+    }
+    name
+};
+
+ArgsList = "(" <CommaList<Arg>> ")";
+
+Arg: FunctionArgument = {
+    Literal => FunctionArgument::Arg(<>),
+    FunctionOrRef => FunctionArgument::Function(<>),
+};
+
+Literal: Value = {
+    Integer => Value::Integer(<>),
+    Float => Value::Float(<>),
+    String => Value::Bytes(<>.to_string().into()),
+    Boolean => Value::Boolean(<>),
+    Null => Value::Null,
+};
+
+Integer: i64 = "integer literal";
+Float: f64 = "float literal";
+String: String = "string literal" => <>.unescape();
+ExtendedIdentifier: &'input str = "extended identifier";
+Identifier: &'input str = "identifier";
+Boolean: bool = { "true" => true, "false" => false };
+Null: () = "null";
+
+
+#[inline]
+CommaList<T>: Vec<T> = {
+    <mut v:(<T> ",")*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};

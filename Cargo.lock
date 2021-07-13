@@ -565,7 +565,7 @@ dependencies = [
  "serde",
  "serde_json",
  "strum",
- "strum_macros",
+ "strum_macros 0.18.0",
  "thiserror",
  "typed-builder 0.5.1",
  "uuid",
@@ -1803,6 +1803,30 @@ name = "data-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ee2393c4a91429dffb4bedf19f4d6abf27d8a732c8ce4980305d782e5426d57"
+
+[[package]]
+name = "datadog-grok"
+version = "0.1.0"
+dependencies = [
+ "bytes 1.0.1",
+ "derivative 2.2.0",
+ "grok",
+ "itertools 0.10.1",
+ "lalrpop",
+ "lalrpop-util",
+ "lazy_static",
+ "lookup",
+ "parsing",
+ "percent-encoding",
+ "regex",
+ "serde",
+ "serde_json",
+ "shared",
+ "snafu",
+ "strum_macros 0.21.1",
+ "thiserror",
+ "tracing 0.1.26",
+]
 
 [[package]]
 name = "datadog-search-syntax"
@@ -4751,6 +4775,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "parsing"
+version = "0.1.0"
+dependencies = [
+ "bytes 1.0.1",
+ "form_urlencoded",
+ "nom 6.1.2",
+ "serde",
+ "serde_json",
+ "shared",
+ "vrl",
+]
+
+[[package]]
 name = "paste"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7097,6 +7134,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "strum_macros"
+version = "0.21.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d06aaeeee809dbc59eb4556183dd927df67db1540de5be8d3ec0b6636358a5ec"
+dependencies = [
+ "heck",
+ "proc-macro2 1.0.26",
+ "quote 1.0.9",
+ "syn 1.0.72",
+]
+
+[[package]]
 name = "subtle"
 version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8382,6 +8431,7 @@ dependencies = [
  "metrics-tracing-context",
  "metrics-util",
  "once_cell",
+ "parsing",
  "pest",
  "pest_derive",
  "pin-project 1.0.7",
@@ -8518,6 +8568,7 @@ dependencies = [
  "cidr-utils",
  "criterion",
  "csv",
+ "datadog-grok",
  "grok",
  "hex",
  "hostname",
@@ -8525,6 +8576,7 @@ dependencies = [
  "lookup",
  "md-5",
  "nom 6.1.2",
+ "parsing",
  "percent-encoding",
  "regex",
  "roxmltree",
