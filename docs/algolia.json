@@ -6,6 +6,7 @@
   "searchableAttributes": [
     "title",
     "content",
+    "unordered(hierarchy)",
     "unordered(tags)"
   ],
   "numericAttributesToIndex": null,
