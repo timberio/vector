@@ -179,12 +179,51 @@ service:
 # of using a generated one.
 existingConfigMap: ""
 
+# Specify custom contents for the Vector config
+# ref: https://vector.dev/docs/reference/configuration/
+# Note a complete and valid configuration is required. If used, the deprecated
+# configuration keys will be ignored. More information can be found at:
+# https://vector.dev/highlights/2021-07-13-helm-customconfig
+customConfig: {}
+  #  data_dir: "/vector-data-dir"
+  #  sources:
+  #    host_metrics:
+  #    internal_metrics:
+  #      type: internal_metrics
+  #   vector:
+  #     type: vector
+  #     address: 0.0.0.0:9000
+  #     version: "2"
+  #  sinks:
+  #    prometheus_sink:
+  #      type: prometheus_exporter
+  #      inputs: ["internal_metrics"]
+  #      address: 0.0.0.0:9090
+
+# Use prometheus-operator `PodMonitor` to opt-in for Prometheus scraping.
+# To be used in clusters that rely on prometheus-operator to gather metrics.
+# You might want to set `podMonitorSelectorNilUsesHelmValues=false` if you're
+# using prometheus-operator Helm chart to allow `PodMonitor` resources
+# dicovery in all namespaces.
+podMonitor:
+  # Whether to add the `PodMonitor` resource or not.
+  # `prometheus-operator` CRDs are necessary, otherwise you'll get an error.
+  enabled: false
+  # Additional labels for PodMonitor
+  additionalLabels: {}
+  # Additional relabelings to include in the `PodMonitor`.
+  extraRelabelings: []
+  # metricRelabelings to include in the `PodMonitor`.
+  metricRelabelings: []
+
 # Global parts of the generated `vector` config.
+# DEPRECATED. Use customConfig instead
 globalOptions:
   # Specifies the (in-container) data dir used by `vector`.
   dataDir: "/vector-data-dir"
 
 # Schema part of the generated `vector` config.
+# DEPRECATED. Use customConfig instead
 logSchema:
   hostKey: "host"
   messageKey: "message"
@@ -193,6 +232,7 @@ logSchema:
 
 # The Vector API.
 # Will be disabled by default.
+# DEPRECATED. Use customConfig instead
 vectorApi:
   # Turn the Vector API on or off.
   enabled: false
@@ -203,6 +243,7 @@ vectorApi:
 
 # The "built-in" vector source, for accepting logs from the vector agents.
 # Will be added by default, unless explicitly disabled.
+# DEPRECATED. Use customConfig instead
 vectorSource:
   # Disable to omit the vector source from being added.
   enabled: true
@@ -222,6 +263,7 @@ vectorSource:
 
 # The "built-in" internal metrics source emitting Vector's internal opertaional
 # metrics.
+# DEPRECATED. Use customConfig instead
 internalMetricsSource:
   # Disable to omit the internal metrics source from being added.
   enabled: true
@@ -238,6 +280,7 @@ internalMetricsSource:
 # When using this "built-in" sink, we automatically configure container ports,
 # and ensure things are ready for discovery and scraping via Prometheus'
 # `kubernetes_sd_configs` jobs.
+# DEPRECATED. Use customConfig instead
 prometheusSink:
   # Disable to omit the prometheus sink from being added.
   enabled: true
@@ -266,7 +309,7 @@ prometheusSink:
   # `prometheus.io/scrape` to discover scrape targets.
   addPodAnnotations: false
   # Use prometheus-operator `PodMonitor` to opt-in for Prometheus scraping.
-  # To be used in clusters that rely on prometheus-operator to gether metrics.
+  # To be used in clusters that rely on prometheus-operator to gather metrics.
   # You might want to set `podMonitorSelectorNilUsesHelmValues=false` if you're
   # using prometheus-operator Helm chart to allow `PodMonitor` resources
   # dicovery in all namespaces.
@@ -282,6 +325,7 @@ prometheusSink:
     metricRelabelings: []
 
 # Sources to add to the generated `vector` config
+# DEPRECATED. Use customConfig instead
 sources: {}
   # source_name:
   #   type: "source_type"
@@ -289,6 +333,7 @@ sources: {}
   #     option = "value"
 
 # Transforms to add to the generated `vector` config.
+# DEPRECATED. Use customConfig instead
 transforms: {}
   # transform_name:
   #   type: "transform_type"
@@ -297,6 +342,7 @@ transforms: {}
   #     option = "value"
 
 # Sinks to add to the generated `vector` config.
+# DEPRECATED. Use customConfig instead
 sinks: {}
   # sink_name:
   #   type: "sink_type"

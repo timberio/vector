@@ -16,6 +16,35 @@ const HELM_VALUES_LOWER_GLOB: &str = indoc! {r#"
         glob_minimum_cooldown_ms = 5000
 "#};
 
+const HELM_VALUES_CUSTOM_CONFIG: &str = indoc! {r#"
+    customConfig:
+      data_dir: "/vector-data-dir"
+      sources:
+        host_metrics:
+          type: host_metrics
+          filesystem:
+            devices:
+              excludes: ["binfmt_misc"]
+            filesystems:
+              excludes: ["binfmt_misc"]
+            mountpoints:
+              excludes: ["*/proc/sys/fs/binfmt_misc"]
+        internal_metrics:
+          type: internal_metrics
+        kubernetes_logs:
+          type: kubernetes_logs
+          glob_minimum_cooldown_ms: 5000
+      sinks:
+        prometheus_sink:
+          type: prometheus_exporter
+          inputs: ["host_metrics", "internal_metrics"]
+          address: 0.0.0.0:9090
+        stdout:
+          type: console
+          inputs: ["kubernetes_logs"]
+          encoding: json
+"#};
+
 const HELM_VALUES_STDOUT_SINK: &str = indoc! {r#"
     sinks:
       stdout:
@@ -103,6 +132,103 @@ async fn simple() -> Result<(), Box<dyn std::error::Error>> {
         ))?)
         .await?;
 
+    framework
+        .wait(
+            &pod_namespace,
+            vec!["pods/test-pod"],
+            WaitFor::Condition("initialized"),
+            vec!["--timeout=60s"],
+        )
+        .await?;
+
+    // Make sure we read the correct nodes logs.
+    let vector_pod = framework
+        .get_vector_pod_with_pod(&pod_namespace, "test-pod", &namespace, &override_name)
+        .await?;
+
+    let mut log_reader = framework.logs(&namespace, &format!("pod/{}", vector_pod))?;
+    smoke_check_first_line(&mut log_reader).await;
+
+    // Read the rest of the log lines.
+    let mut got_marker = false;
+    look_for_log_line(&mut log_reader, |val| {
+        if val["kubernetes"]["pod_namespace"] != pod_namespace.as_str() {
+            // A log from something other than our test pod, pretend we don't
+            // see it.
+            return FlowControlCommand::GoOn;
+        }
+
+        // Ensure we got the marker.
+        assert_eq!(val["message"], "MARKER");
+
+        if got_marker {
+            // We've already seen one marker! This is not good, we only emitted
+            // one.
+            panic!("Marker seen more than once");
+        }
+
+        // If we did, remember it.
+        got_marker = true;
+
+        // Request to stop the flow.
+        FlowControlCommand::Terminate
+    })
+    .await?;
+
+    assert!(got_marker);
+
+    drop(test_pod);
+    drop(test_namespace);
+    drop(vector);
+    Ok(())
+}
+
+/// This test validates that vector-agent picks up logs at the simplest case
+/// possible - a new pod is deployed and prints to stdout, and we assert that
+/// vector picks that up - but with the new `customConfig` way of passing the
+/// sink configuration.
+#[tokio::test]
+async fn simple_custom_config() -> Result<(), Box<dyn std::error::Error>> {
+    let _guard = lock();
+    init();
+
+    let namespace = get_namespace();
+    let pod_namespace = get_namespace_appended(&namespace, "test-pod");
+    let framework = make_framework();
+    let override_name = get_override_name(&namespace, "vector-agent");
+
+    let vector = framework
+        .vector(
+            &namespace,
+            HELM_CHART_VECTOR_AGENT,
+            VectorConfig {
+                custom_helm_values: vec![
+                    &config_override_name(&override_name, true),
+                    HELM_VALUES_CUSTOM_CONFIG,
+                ],
+                ..Default::default()
+            },
+        )
+        .await?;
+    framework
+        .wait_for_rollout(
+            &namespace,
+            &format!("daemonset/{}", override_name),
+            vec!["--timeout=60s"],
+        )
+        .await?;
+
+    let test_namespace = framework.namespace(&pod_namespace).await?;
+
+    let test_pod = framework
+        .test_pod(test_pod::Config::from_pod(&make_test_pod(
+            &pod_namespace,
+            "test-pod",
+            "echo MARKER",
+            vec![],
+            vec![],
+        ))?)
+        .await?;
     framework
         .wait(
             &pod_namespace,

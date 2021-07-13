@@ -7,7 +7,7 @@ either 'vector-aggregator.servicePorts' or 'vector-aggregator.headlessServicePor
 {{- define "vector-aggregator.internalServicePorts" -}}
 {{- $headless := index . 0 -}}
 {{- $values := index . 1 -}}
-{{- if $values.vectorSource.enabled }}
+{{- if and $values.vectorSource.enabled (not $values.customConfig) }}
 {{- $servicePort := dict -}}
 {{- $_ := set $servicePort "name" "vector" -}}
 {{- $_ := set $servicePort "port" $values.vectorSource.listenPort -}}
@@ -39,5 +39,5 @@ Generate effective service ports for headless service definition.
 Determines whether there are any ports present.
 */}}
 {{- define "vector-aggregator.servicePortsPresent" -}}
-{{- or .Values.vectorSource.enabled (not (empty .Values.service.ports)) }}
+{{- or (and .Values.vectorSource.enabled (not .Values.customConfig)) (not (empty .Values.service.ports)) }}
 {{- end }}

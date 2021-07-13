@@ -46,8 +46,8 @@ spec:
           command:
             {{- toYaml .Values.command | nindent 12 }}
           args:
-            - --config
-            - /etc/vector/*.toml
+            - --config-dir
+            - /etc/vector/
           env:
             - name: VECTOR_SELF_NODE_NAME
               valueFrom:
@@ -61,12 +61,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-            {{- if .Values.hostMetricsSource.enabled }}
             - name: PROCFS_ROOT
               value: /host/proc
             - name: SYSFS_ROOT
               value: /host/sys
-            {{- end }}
             {{- include "libvector.globalEnv" . | nindent 12 }}
             {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}
@@ -93,12 +91,15 @@ spec:
               readOnly: true
             # Vector data dir mount.
             - name: data-dir
+            {{- if .Values.customConfig }}
+              mountPath: "{{ .Values.customConfig.data_dir | default "/vector-data-dir" }}"
+            {{- else }}
               mountPath: "{{ .Values.globalOptions.dataDir }}"
+            {{- end }}
             # Vector config dir mount.
             - name: config-dir
               mountPath: /etc/vector
               readOnly: true
-            {{- if .Values.hostMetricsSource.enabled }}
             # Host procsfs mount.
             - name: procfs
               mountPath: /host/proc
@@ -107,7 +108,6 @@ spec:
             - name: sysfs
               mountPath: /host/sys
               readOnly: true
-            {{- end }}
             {{- with .Values.extraVolumeMounts }}
             # Extra volumes.
             {{- toYaml . | nindent 12 }}
@@ -146,7 +146,6 @@ spec:
               {{- with .Values.extraConfigDirSources }}
               {{- toYaml . | nindent 14 }}
               {{- end }}
-        {{- if .Values.hostMetricsSource.enabled }}
         # Host procsfs.
         - name: procfs
           hostPath:
@@ -155,7 +154,6 @@ spec:
         - name: sysfs
           hostPath:
             path: /sys
-        {{- end }}
         {{- with .Values.extraVolumes }}
         # Extra volumes.
         {{- toYaml . | nindent 8 }}

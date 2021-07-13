@@ -148,12 +148,57 @@ psp:
 # of using a generated one.
 existingConfigMap: ""
 
+# Specify custom contents for the Vector config
+# ref: https://vector.dev/docs/reference/configuration/
+# Note a complete and valid configuration is required. If used, the deprecated
+# configuration keys will be ignored. More information can be found at:
+# https://vector.dev/highlights/2021-07-13-helm-customconfig
+customConfig: {}
+  #  data_dir: "/vector-data-dir"
+  #  sources:
+  #    host_metrics:
+  #      type: host_metrics
+  #      filesystem:
+  #        devices:
+  #          excludes: ["binfmt_misc"]
+  #        filesystems:
+  #          excludes: ["binfmt_misc"]
+  #        mountpoints:
+  #          excludes: ["*/proc/sys/fs/binfmt_misc"]
+  #    internal_metrics:
+  #      type: internal_metrics
+  #    kubernetes_logs:
+  #      type: kubernetes_logs
+  #  sinks:
+  #    prometheus_sink:
+  #      type: prometheus_exporter
+  #      inputs: ["host_metrics", "internal_metrics"]
+  #      address: 0.0.0.0:9090
+
+# Use prometheus-operator `PodMonitor` to opt-in for Prometheus scraping.
+# To be used in clusters that rely on prometheus-operator to gather metrics.
+# You might want to set `podMonitorSelectorNilUsesHelmValues=false` if you're
+# using prometheus-operator Helm chart to allow `PodMonitor` resources
+# dicovery in all namespaces.
+podMonitor:
+  # Whether to add the `PodMonitor` resource or not.
+  # `prometheus-operator` CRDs are necessary, otherwise you'll get an error.
+  enabled: false
+  # Additional labels for PodMonitor
+  additionalLabels: {}
+  # Additional relabelings to include in the `PodMonitor`.
+  extraRelabelings: []
+  # metricRelabelings to include in the `PodMonitor`.
+  metricRelabelings: []
+
 # Global parts of the generated `vector` config.
+# DEPRECATED. Use customConfig instead
 globalOptions:
   # Specifies the (in-container) data dir used by `vector`.
   dataDir: "/vector-data-dir"
 
 # Schema part of the generated `vector` config.
+# DEPRECATED. Use customConfig instead
 logSchema:
   hostKey: "host"
   messageKey: "message"
@@ -162,6 +207,7 @@ logSchema:
 
 # The Vector API.
 # Will be disabled by default.
+# DEPRECATED. Use customConfig instead
 vectorApi:
   # Turn the Vector API on or off.
   enabled: false
@@ -173,6 +219,7 @@ vectorApi:
 # The "built-in" kubernetes logs source to collect logs from the `Pod`s running
 # on the `Node`.
 # Will be added by default, unless explicitly disabled.
+# DEPRECATED. Use customConfig instead
 kubernetesLogsSource:
   # Disable to omit the kubernetes logs source from being added.
   enabled: true
@@ -187,6 +234,7 @@ kubernetesLogsSource:
 # The "built-in" vector sink, to send the logs to the vector aggregator.
 # Disabled by default when using `vector-agent` chart.
 # Enabled by default when using `vector` chart, and automatically configured.
+# DEPRECATED. Use customConfig instead
 vectorSink:
   # Disable to omit the vector sink from being added.
   enabled: false
@@ -206,6 +254,7 @@ vectorSink:
 
 # The "built-in" internal metrics source emitting Vector's internal opertaional
 # metrics.
+# DEPRECATED. Use customConfig instead
 internalMetricsSource:
   # Disable to omit the internal metrics source from being added.
   enabled: true
@@ -219,6 +268,7 @@ internalMetricsSource:
 
 # The "built-in" host metrics source emitting the metrics gathered from the node
 # that Vector is executing on.
+# DEPRECATED. Use customConfig instead
 hostMetricsSource:
   # Disable to omit the host metrics source from being added.
   enabled: true
@@ -242,6 +292,7 @@ hostMetricsSource:
 # When using this "built-in" sink, we automatically configure container ports,
 # and ensure things are ready for discovery and scraping via Prometheus'
 # `kubernetes_sd_configs` jobs.
+# DEPRECATED. Use customConfig instead
 prometheusSink:
   # Disable to omit the prometheus sink from being added.
   enabled: true
@@ -270,7 +321,7 @@ prometheusSink:
   # `prometheus.io/scrape` to discover scrape targets.
   addPodAnnotations: false
   # Use prometheus-operator `PodMonitor` to opt-in for Prometheus scraping.
-  # To be used in clusters that rely on prometheus-operator to gether metrics.
+  # To be used in clusters that rely on prometheus-operator to gather metrics.
   # You might want to set `podMonitorSelectorNilUsesHelmValues=false` if you're
   # using prometheus-operator Helm chart to allow `PodMonitor` resources
   # dicovery in all namespaces.
@@ -287,6 +338,7 @@ prometheusSink:
 
 # Sources to add to the generated `vector` config (besides "built-in" kubernetes
 # logs source).
+# DEPRECATED. Use customConfig instead
 sources: {}
   # source_name:
   #   type: "source_type"
@@ -295,6 +347,7 @@ sources: {}
   #     option = "value"
 
 # Transforms to add to the generated `vector` config.
+# DEPRECATED. Use customConfig instead
 transforms: {}
   # transform_name:
   #   type: "transform_type"
@@ -304,6 +357,7 @@ transforms: {}
   #     option = "value"
 
 # Sinks to add to the generated `vector` config.
+# DEPRECATED. Use customConfig instead
 sinks: {}
   # sink_name:
   #   type: "sink_type"

@@ -6,6 +6,7 @@ Internal metrics are common, so we share and reuse the definition.
 */}}
 {{- define "libvector.metricsConfigPartial" -}}
 
+{{- if .Values.prometheusSink -}}
 {{- $values := .Values -}}
 
 {{- $prometheusInputs := .prometheusInputs -}}
@@ -40,6 +41,7 @@ Internal metrics are common, so we share and reuse the definition.
 {{- end }}
 
 {{- end }}
+{{- end }}
 
 {{/*
 Common Vector container ports used by the built-in metrics pipeline.
@@ -47,7 +49,7 @@ Internal metrics are common, so we share and reuse the definition.
 */}}
 {{- define "libvector.metricsContainerPorts" -}}
 {{- with .Values.prometheusSink }}
-{{- if .enabled -}}
+{{- if and .enabled (not $.Values.customConfig) -}}
 - name: metrics
   containerPort: {{ .listenPort }}
   protocol: TCP
@@ -61,10 +63,12 @@ Prometheus scraping.
 Internal metrics are common, so we share and reuse the definition.
 */}}
 {{- define "libvector.metricsPrometheusPodAnnotations" -}}
+{{- if .Values.prometheusSink -}}
 {{- with .Values.prometheusSink }}
 {{- if and .enabled .addPodAnnotations -}}
 prometheus.io/scrape: "true"
 prometheus.io/port: "{{ .listenPort }}"
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
@@ -75,6 +79,47 @@ Common Vector `PodMonitor` to expose the built-in metrics pipeline for
 Internal metrics are common, so we share and reuse the definition.
 */}}
 {{- define "libvector.metricsPodMonitor" -}}
+{{- if .Values.podMonitor.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "libvector.fullname" . }}
+  labels:
+    {{- include "libvector.labels" . | nindent 4 }}
+    {{- with .Values.podMonitor.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  jobLabel: app.kubernetes.io/name
+
+  selector:
+    matchLabels:
+      {{- include "libvector.selectorLabels" . | nindent 6 }}
+
+  namespaceSelector:
+    matchNames:
+      - "{{ .Release.Namespace }}"
+
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      relabelings:
+        - action: labeldrop
+          regex: __meta_kubernetes_pod_label_skaffold_dev.*
+        - action: labeldrop
+          regex: __meta_kubernetes_pod_label_pod_template_hash.*
+        - action: labelmap
+          regex: __meta_kubernetes_pod_label_(.+)
+        {{- with .Values.podMonitor.extraRelabelings }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      metricRelabelings:
+        {{- with .Values.podMonitor.metricRelabelings }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+{{- end }}
+{{/* DEPRECATED */}}
+{{- if .Values.prometheusSink -}}
 {{- if and .Values.prometheusSink.enabled .Values.prometheusSink.podMonitor.enabled -}}
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
@@ -113,5 +158,6 @@ spec:
         {{- with .Values.prometheusSink.podMonitor.metricRelabelings }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+{{- end }}
 {{- end }}
 {{- end }}

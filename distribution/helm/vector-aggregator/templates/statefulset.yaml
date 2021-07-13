@@ -42,8 +42,8 @@ spec:
           image: {{ include "libvector.image" . | quote }}
           imagePullPolicy: "{{ .Values.image.pullPolicy }}"
           args:
-            - --config
-            - /etc/vector/*.toml
+            - --config-dir
+            - /etc/vector/
           env:
             {{- include "libvector.globalEnv" . | nindent 12 }}
             {{- with .Values.env }}
@@ -59,7 +59,11 @@ spec:
           volumeMounts:
             # Vector data dir mount.
             - name: data-dir
+            {{- if .Values.globalOptions.enabled }}
               mountPath: "{{ .Values.globalOptions.dataDir }}"
+            {{- else }}
+              mountPath: "{{ .Values.customConfig.data_dir | default "/vector-data-dir" }}"
+            {{- end }}
             # Vector config dir mount.
             - name: config-dir
               mountPath: /etc/vector

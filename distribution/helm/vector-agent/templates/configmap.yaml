@@ -6,11 +6,18 @@ metadata:
   labels:
     {{- include "libvector.labels" . | nindent 4 }}
 data:
+  {{- if .Values.customConfig }}
+  vector.yaml: |
+{{ tpl (toYaml .Values.customConfig) . | indent 4 }}
+  {{- else }}
   # We leave `vector.toml` file name available to let externally managed config
   # maps to provide it.
   managed.toml: |
+    {{- if .Values.vectorApi }}
     {{- include "libvector.vectorConfigHeader" . | nindent 4 -}}
+    {{- end }}
 
+    {{- if .Values.kubernetesLogsSource }}
     {{- with .Values.kubernetesLogsSource }}
     {{- if .enabled }}
     # Ingest logs from Kubernetes.
@@ -20,7 +27,9 @@ data:
     {{- tuple .sourceId $value | include "libvector.vectorSourceConfig" | nindent 4 -}}
     {{- end }}
     {{- end }}
+    {{- end }}
 
+    {{- if .Values.vectorSink -}}
     {{- with .Values.vectorSink -}}
     {{- if .enabled }}
     # Send logs to the aggregator.
@@ -32,8 +41,10 @@ data:
     {{- tuple .sinkId $value | include "libvector.vectorSinkConfig" | nindent 4 -}}
     {{- end }}
     {{- end }}
+    {{- end }}
 
     {{- $prometheusInputs := (list) -}}
+    {{- if .Values.hostMetricsSource -}}
     {{- with .Values.hostMetricsSource -}}
     {{- if .enabled }}
     {{- $prometheusInputs = prepend $prometheusInputs .sourceId }}
@@ -44,9 +55,11 @@ data:
     {{- tuple .sourceId $value | include "libvector.vectorSourceConfig" | nindent 4 -}}
     {{- end -}}
     {{- end -}}
+    {{- end -}}
 
     {{- merge . (dict "prometheusInputs" $prometheusInputs) | include "libvector.metricsConfigPartial" | nindent 4 -}}
 
     {{- include "libvector.vectorTopology" .Values | nindent 4 -}}
 
+  {{- end }}
 {{- end }}

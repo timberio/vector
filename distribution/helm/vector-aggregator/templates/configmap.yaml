@@ -6,6 +6,10 @@ metadata:
   labels:
     {{- include "libvector.labels" . | nindent 4 }}
 data:
+  {{- if .Values.customConfig }}
+  vector.yaml: |
+{{ tpl (toYaml .Values.customConfig) . | indent 4 }}
+  {{- else }}
   # We leave `vector.toml` file name available to let externally managed config
   # maps to provide it.
   managed.toml: |
@@ -26,4 +30,5 @@ data:
 
     {{- include "libvector.vectorTopology" .Values | nindent 4 -}}
 
+  {{- end }}
 {{- end }}

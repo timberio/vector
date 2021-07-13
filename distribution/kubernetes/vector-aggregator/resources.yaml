@@ -158,8 +158,8 @@ spec:
           image: "timberio/vector:latest-debian"
           imagePullPolicy: "IfNotPresent"
           args:
-            - --config
-            - /etc/vector/*.toml
+            - --config-dir
+            - /etc/vector/
           env:
             
             - name: LOG
