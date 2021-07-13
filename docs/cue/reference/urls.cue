@@ -109,6 +109,7 @@ urls: {
 	dag:                                                      "\(wikipedia)/wiki/Directed_acyclic_graph"
 	datadog:                                                  "https://www.datadoghq.com"
 	datadog_agent:                                            "https://github.com/DataDog/datadog-agent"
+	datadog_agent_doc:                                        "\(datadog_docs)/agent/vector_aggregation/"
 	datadog_distribution:                                     "\(datadog_docs)/developers/metrics/types/?tab=distribution#definition"
 	datadog_docs:                                             "https://docs.datadoghq.com"
 	datadog_events:                                           "\(datadog_docs)/events/"
