@@ -1,9 +1,16 @@
-{{ $category := .Get 0 }}
+{{ $categories := site.Data.docs.remap.function_categories }}
+
+{{ range $categories }}
+{{ $category := . }}
 {{ $funcs := slice }}
-{{ range site.Data.docs.remap.functions }}
-{{ if eq .category $category }}
-{{ $funcs = $funcs | append . }}
+{{ range $k, $func := site.Data.docs.remap.functions }}
+{{ if eq $func.category $category }}
+{{ $funcs = $funcs | append $func }}
 {{ end }}
 {{ end }}
 
+{{ $text := printf "%s examples" . }}
+{{ partial "heading.html" (dict "text" $text "level" 2) }}
+
 {{ partial "data.html" (dict "vrl_examples" $funcs) }}
+{{ end }}
