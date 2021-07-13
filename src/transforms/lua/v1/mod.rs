@@ -13,7 +13,7 @@ use std::{future::ready, pin::Pin};
 #[derive(Debug, Snafu)]
 enum BuildError {
     #[snafu(display("Lua error: {}", source))]
-    InvalidLua { source: rlua::Error },
+    InvalidLua { source: mlua::Error },
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -64,7 +64,8 @@ pub struct Lua {
     #[derivative(Debug = "ignore")]
     search_dirs: Vec<String>,
     #[derivative(Debug = "ignore")]
-    lua: rlua::Lua,
+    lua: mlua::Lua,
+    vector_func: mlua::RegistryKey,
     invocations_after_gc: usize,
 }
 
@@ -76,7 +77,7 @@ impl Clone for Lua {
 }
 
 // This wrapping structure is added in order to make it possible to have independent implementations
-// of `rlua::UserData` trait for event in version 1 and version 2 of the transform.
+// of `mlua::UserData` trait for event in version 1 and version 2 of the transform.
 #[derive(Clone)]
 struct LuaEvent {
     inner: Event,
@@ -84,7 +85,11 @@ struct LuaEvent {
 
 impl Lua {
     pub fn new(source: String, search_dirs: Vec<String>) -> crate::Result<Self> {
-        let lua = rlua::Lua::new();
+        // In order to support loading C modules in Lua, we need to create unsafe instance
+        // without debug library.
+        let lua = unsafe {
+            mlua::Lua::unsafe_new_with(mlua::StdLib::ALL_SAFE, mlua::LuaOptions::default())
+        };
 
         let additional_paths = search_dirs
             .iter()
@@ -92,42 +97,42 @@ impl Lua {
             .collect::<Vec<_>>()
             .join(";");
 
-        lua.context(|ctx| {
-            if !additional_paths.is_empty() {
-                let package = ctx.globals().get::<_, rlua::Table<'_>>("package")?;
-                let current_paths = package
-                    .get::<_, String>("path")
-                    .unwrap_or_else(|_| ";".to_string());
-                let paths = format!("{};{}", additional_paths, current_paths);
-                package.set("path", paths)?;
-            }
+        if !additional_paths.is_empty() {
+            let package = lua
+                .globals()
+                .get::<_, mlua::Table<'_>>("package")
+                .context(InvalidLua)?;
+            let current_paths = package
+                .get::<_, String>("path")
+                .unwrap_or_else(|_| ";".to_string());
+            let paths = format!("{};{}", additional_paths, current_paths);
+            package.set("path", paths).context(InvalidLua)?;
+        }
 
-            let func = ctx.load(&source).into_function()?;
-            ctx.set_named_registry_value("vector_func", func)?;
-            Ok(())
-        })
-        .context(InvalidLua)?;
+        let func = lua.load(&source).into_function().context(InvalidLua)?;
+        let vector_func = lua.create_registry_value(func).context(InvalidLua)?;
 
         Ok(Self {
             source,
             search_dirs,
             lua,
+            vector_func,
             invocations_after_gc: 0,
         })
     }
 
-    fn process(&mut self, event: Event) -> Result<Option<Event>, rlua::Error> {
-        let result = self.lua.context(|ctx| {
-            let globals = ctx.globals();
+    fn process(&mut self, event: Event) -> Result<Option<Event>, mlua::Error> {
+        let lua = &self.lua;
+        let globals = lua.globals();
 
-            globals.set("event", LuaEvent { inner: event })?;
+        globals.raw_set("event", LuaEvent { inner: event })?;
 
-            let func = ctx.named_registry_value::<_, rlua::Function<'_>>("vector_func")?;
-            func.call(())?;
-            globals
-                .get::<_, Option<LuaEvent>>("event")
-                .map(|option| option.map(|lua_event| lua_event.inner))
-        });
+        let func = lua.registry_value::<mlua::Function<'_>>(&self.vector_func)?;
+        func.call(())?;
+
+        let result = globals
+            .raw_get::<_, Option<LuaEvent>>("event")
+            .map(|option| option.map(|lua_event| lua_event.inner));
 
         self.invocations_after_gc += 1;
         if self.invocations_after_gc % GC_INTERVAL == 0 {
@@ -180,28 +185,28 @@ impl TaskTransform for Lua {
     }
 }
 
-impl rlua::UserData for LuaEvent {
-    fn add_methods<'lua, M: rlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
+impl mlua::UserData for LuaEvent {
+    fn add_methods<'lua, M: mlua::UserDataMethods<'lua, Self>>(methods: &mut M) {
         methods.add_meta_method_mut(
-            rlua::MetaMethod::NewIndex,
-            |_ctx, this, (key, value): (String, Option<rlua::Value<'lua>>)| {
+            mlua::MetaMethod::NewIndex,
+            |_lua, this, (key, value): (String, Option<mlua::Value<'lua>>)| {
                 match value {
-                    Some(rlua::Value::String(string)) => {
+                    Some(mlua::Value::String(string)) => {
                         this.inner.as_mut_log().insert(
                             key,
                             Value::from(string.to_str().expect("Expected UTF-8.").to_owned()),
                         );
                     }
-                    Some(rlua::Value::Integer(integer)) => {
+                    Some(mlua::Value::Integer(integer)) => {
                         this.inner.as_mut_log().insert(key, Value::Integer(integer));
                     }
-                    Some(rlua::Value::Number(number)) => {
+                    Some(mlua::Value::Number(number)) => {
                         this.inner.as_mut_log().insert(key, Value::Float(number));
                     }
-                    Some(rlua::Value::Boolean(boolean)) => {
+                    Some(mlua::Value::Boolean(boolean)) => {
                         this.inner.as_mut_log().insert(key, Value::Boolean(boolean));
                     }
-                    Some(rlua::Value::Nil) | None => {
+                    Some(mlua::Value::Nil) | None => {
                         this.inner.as_mut_log().remove(key);
                     }
                     _ => {
@@ -219,30 +224,30 @@ impl rlua::UserData for LuaEvent {
             },
         );
 
-        methods.add_meta_method(rlua::MetaMethod::Index, |ctx, this, key: String| {
+        methods.add_meta_method(mlua::MetaMethod::Index, |lua, this, key: String| {
             if let Some(value) = this.inner.as_log().get(key) {
-                let string = ctx.create_string(&value.as_bytes())?;
+                let string = lua.create_string(&value.as_bytes())?;
                 Ok(Some(string))
             } else {
                 Ok(None)
             }
         });
 
-        methods.add_meta_function(rlua::MetaMethod::Pairs, |ctx, event: LuaEvent| {
-            let state = ctx.create_table()?;
+        methods.add_meta_function(mlua::MetaMethod::Pairs, |lua, event: LuaEvent| {
+            let state = lua.create_table()?;
             {
-                let keys = ctx.create_table_from(event.inner.as_log().keys().map(|k| (k, true)))?;
-                state.set("event", event)?;
-                state.set("keys", keys)?;
+                let keys = lua.create_table_from(event.inner.as_log().keys().map(|k| (k, true)))?;
+                state.raw_set("event", event)?;
+                state.raw_set("keys", keys)?;
             }
             let function =
-                ctx.create_function(|ctx, (state, prev): (rlua::Table, Option<String>)| {
-                    let event: LuaEvent = state.get("event")?;
-                    let keys: rlua::Table = state.get("keys")?;
-                    let next: rlua::Function = ctx.globals().get("next")?;
+                lua.create_function(|lua, (state, prev): (mlua::Table, Option<String>)| {
+                    let event: LuaEvent = state.raw_get("event")?;
+                    let keys: mlua::Table = state.raw_get("keys")?;
+                    let next: mlua::Function = lua.globals().raw_get("next")?;
                     let key: Option<String> = next.call((keys, prev))?;
                     match key.clone().and_then(|k| event.inner.as_log().get(k)) {
-                        Some(value) => Ok((key, Some(ctx.create_string(&value.as_bytes())?))),
+                        Some(value) => Ok((key, Some(lua.create_string(&value.as_bytes())?))),
                         None => Ok((None, None)),
                     }
                 })?;
@@ -251,9 +256,9 @@ impl rlua::UserData for LuaEvent {
     }
 }
 
-pub fn format_error(error: &rlua::Error) -> String {
+pub fn format_error(error: &mlua::Error) -> String {
     match error {
-        rlua::Error::CallbackError { traceback, cause } => format_error(cause) + "\n" + traceback,
+        mlua::Error::CallbackError { traceback, cause } => format_error(cause) + "\n" + traceback,
         err => err.to_string(),
     }
 }

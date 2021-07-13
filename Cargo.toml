@@ -233,6 +233,8 @@ logfmt = { version = "0.0.2", default-features = false, optional = true }
 lru = { version = "0.6.5", default-features = false, optional = true }
 maxminddb = { version = "0.20.0", default-features = false, optional = true }
 md-5 = { version = "0.9", optional = true }
+# make sure to update the external docs when the Lua version changes
+mlua = { version = "0.6.2", default-features = false, features = ["lua54", "send", "vendored"], optional = true }
 mongodb = { version = "2.0.0-beta.2", default-features = false, features = ["tokio-runtime"], optional = true }
 async-nats = { version = "0.9.18", default-features = false, optional = true }
 nom = { version = "6.1.2", default-features = false, optional = true }
@@ -252,8 +254,6 @@ rand_distr = { version = "0.4.1", default-features = false }
 rdkafka = { version = "0.26.0", default-features = false, features = ["tokio", "libz", "ssl", "zstd"], optional = true }
 redis = { version = "0.20.2", default-features = false, features = ["connection-manager", "tokio-comp", "tokio-native-tls-comp"], optional = true }
 regex = { version = "1.5.4", default-features = false, features = ["std", "perf"] }
-# make sure to update the external docs when the Lua version changes
-rlua = { version = "0.17.0", default-features = true, optional = true }
 seahash = { version = "4.1.0", default-features = false, optional = true }
 semver = { version = "1.0.3", default-features = false, features = ["serde", "std"], optional = true }
 snafu = { version = "0.6.10", default-features = false, features = ["futures"] }
@@ -532,7 +532,7 @@ transforms-json_parser = []
 transforms-key_value_parser = []
 transforms-log_to_metric = []
 transforms-logfmt_parser = ["logfmt"]
-transforms-lua = ["rlua", "vector_core/lua"]
+transforms-lua = ["mlua", "vector_core/lua"]
 transforms-merge = []
 transforms-metric_to_log = []
 transforms-reduce = []

@@ -1,24 +1,23 @@
 use chrono::{DateTime, Datelike, TimeZone, Timelike, Utc};
-use rlua::prelude::*;
-use std::collections::{BTreeMap, BTreeSet};
+use mlua::prelude::*;
 
 /// Convert a `DateTime<Utc>` to a `LuaTable`
 ///
 /// # Errors
 ///
 /// This function will fail insertion into the table fails.
-pub fn timestamp_to_table(ctx: LuaContext<'_>, ts: DateTime<Utc>) -> LuaResult<LuaTable> {
-    let table = ctx.create_table()?;
-    table.set("year", ts.year())?;
-    table.set("month", ts.month())?;
-    table.set("day", ts.day())?;
-    table.set("hour", ts.hour())?;
-    table.set("min", ts.minute())?;
-    table.set("sec", ts.second())?;
-    table.set("nanosec", ts.nanosecond())?;
-    table.set("yday", ts.ordinal())?;
-    table.set("wday", ts.weekday().number_from_sunday())?;
-    table.set("isdst", false)?;
+pub fn timestamp_to_table(lua: &Lua, ts: DateTime<Utc>) -> LuaResult<LuaTable> {
+    let table = lua.create_table()?;
+    table.raw_set("year", ts.year())?;
+    table.raw_set("month", ts.month())?;
+    table.raw_set("day", ts.day())?;
+    table.raw_set("hour", ts.hour())?;
+    table.raw_set("min", ts.minute())?;
+    table.raw_set("sec", ts.second())?;
+    table.raw_set("nanosec", ts.nanosecond())?;
+    table.raw_set("yday", ts.ordinal())?;
+    table.raw_set("wday", ts.weekday().number_from_sunday())?;
+    table.raw_set("isdst", false)?;
 
     Ok(table)
 }
@@ -42,90 +41,14 @@ pub fn table_is_timestamp(t: &LuaTable<'_>) -> LuaResult<bool> {
 /// # Errors
 ///
 /// This function will fail if the table is malformed.
-#[allow(clippy::needless_pass_by_value)] // constrained by rlua types
+#[allow(clippy::needless_pass_by_value)] // constrained by mlua types
 pub fn table_to_timestamp(t: LuaTable<'_>) -> LuaResult<DateTime<Utc>> {
-    let year = t.get("year")?;
-    let month = t.get("month")?;
-    let day = t.get("day")?;
-    let hour = t.get("hour")?;
-    let min = t.get("min")?;
-    let sec = t.get("sec")?;
-    let nano = t.get::<_, Option<u32>>("nanosec")?.unwrap_or(0);
+    let year = t.raw_get("year")?;
+    let month = t.raw_get("month")?;
+    let day = t.raw_get("day")?;
+    let hour = t.raw_get("hour")?;
+    let min = t.raw_get("min")?;
+    let sec = t.raw_get("sec")?;
+    let nano = t.raw_get::<_, Option<u32>>("nanosec")?.unwrap_or(0);
     Ok(Utc.ymd(year, month, day).and_hms_nano(hour, min, sec, nano))
-}
-
-/// Convert a `LuaTable` to a `BTreeMap<T>`
-///
-/// # Errors
-///
-/// This function will fail if the table is malformed.
-pub fn table_to_map<'a, K, V>(t: LuaTable<'a>) -> LuaResult<BTreeMap<K, V>>
-where
-    K: From<String> + Ord,
-    V: FromLua<'a>,
-{
-    let mut map = BTreeMap::new();
-    for pair in t.pairs() {
-        let (k, v): (String, V) = pair?;
-        map.insert(k.into(), v);
-    }
-    Ok(map)
-}
-
-/// Convert a `LuaTable` to a `BTreeSet<T>`
-///
-/// # Errors
-///
-/// This function will fail if the table is malformed.
-pub fn table_to_set<'a, T>(t: LuaTable<'a>) -> LuaResult<BTreeSet<T>>
-where
-    T: FromLua<'a> + Ord,
-{
-    let mut set = BTreeSet::new();
-    for item in t.sequence_values() {
-        set.insert(item?);
-    }
-    Ok(set)
-}
-
-/// Determines whether a `LuaTable` is an array.
-///
-/// # Errors
-///
-/// This function will fail if the table is malformed.
-pub fn table_is_array(t: &LuaTable<'_>) -> LuaResult<bool> {
-    Ok(t.len()? > 0)
-}
-
-/// Convert a `LuaTable` to a `Vec<T>`
-///
-/// # Errors
-///
-/// This function will fail if the table is malformed.
-pub fn table_to_array<'a, T>(t: LuaTable<'a>) -> LuaResult<Vec<T>>
-where
-    T: FromLua<'a>,
-{
-    let mut seq = Vec::new();
-    for item in t.sequence_values() {
-        let value = item?;
-        seq.push(value);
-    }
-    Ok(seq)
-}
-
-// Taken from https://github.com/amethyst/rlua/blob/v0.17.0/src/value.rs#L52-L61
-pub fn type_name(value: &LuaValue) -> &'static str {
-    match *value {
-        LuaValue::Nil => "nil",
-        LuaValue::Boolean(_) => "boolean",
-        LuaValue::LightUserData(_) => "light userdata",
-        LuaValue::Integer(_) => "integer",
-        LuaValue::Number(_) => "number",
-        LuaValue::String(_) => "string",
-        LuaValue::Table(_) => "table",
-        LuaValue::Function(_) => "function",
-        LuaValue::Thread(_) => "thread",
-        LuaValue::UserData(_) | LuaValue::Error(_) => "userdata",
-    }
 }

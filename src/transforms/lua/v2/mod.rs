@@ -13,30 +13,30 @@ use vector_core::transform::runtime_transform::{RuntimeTransform, Timer};
 #[derive(Debug, Snafu)]
 pub enum BuildError {
     #[snafu(display("Invalid \"search_dirs\": {}", source))]
-    InvalidSearchDirs { source: rlua::Error },
+    InvalidSearchDirs { source: mlua::Error },
     #[snafu(display("Cannot evaluate Lua code in \"source\": {}", source))]
-    InvalidSource { source: rlua::Error },
+    InvalidSource { source: mlua::Error },
 
     #[snafu(display("Cannot evaluate Lua code defining \"hooks.init\": {}", source))]
-    InvalidHooksInit { source: rlua::Error },
+    InvalidHooksInit { source: mlua::Error },
     #[snafu(display("Cannot evaluate Lua code defining \"hooks.process\": {}", source))]
-    InvalidHooksProcess { source: rlua::Error },
+    InvalidHooksProcess { source: mlua::Error },
     #[snafu(display("Cannot evaluate Lua code defining \"hooks.shutdown\": {}", source))]
-    InvalidHooksShutdown { source: rlua::Error },
+    InvalidHooksShutdown { source: mlua::Error },
     #[snafu(display("Cannot evaluate Lua code defining timer handler: {}", source))]
-    InvalidTimerHandler { source: rlua::Error },
+    InvalidTimerHandler { source: mlua::Error },
 
     #[snafu(display("Runtime error in \"hooks.init\" function: {}", source))]
-    RuntimeErrorHooksInit { source: rlua::Error },
+    RuntimeErrorHooksInit { source: mlua::Error },
     #[snafu(display("Runtime error in \"hooks.process\" function: {}", source))]
-    RuntimeErrorHooksProcess { source: rlua::Error },
+    RuntimeErrorHooksProcess { source: mlua::Error },
     #[snafu(display("Runtime error in \"hooks.shutdown\" function: {}", source))]
-    RuntimeErrorHooksShutdown { source: rlua::Error },
+    RuntimeErrorHooksShutdown { source: mlua::Error },
     #[snafu(display("Runtime error in timer handler: {}", source))]
-    RuntimeErrorTimerHandler { source: rlua::Error },
+    RuntimeErrorTimerHandler { source: mlua::Error },
 
     #[snafu(display("Cannot call GC in Lua runtime: {}", source))]
-    RuntimeErrorGc { source: rlua::Error },
+    RuntimeErrorGc { source: mlua::Error },
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -113,14 +113,28 @@ impl LuaConfig {
 const GC_INTERVAL: usize = 16;
 
 pub struct Lua {
-    lua: rlua::Lua,
+    lua: mlua::Lua,
     invocations_after_gc: usize,
-    timers: Vec<Timer>,
+    hook_init: Option<mlua::RegistryKey>,
+    hook_process: mlua::RegistryKey,
+    hook_shutdown: Option<mlua::RegistryKey>,
+    timers: Vec<(Timer, mlua::RegistryKey)>,
+}
+
+// Helper to create `RegistryKey` from Lua function code
+fn make_registry_value(lua: &mlua::Lua, source: &str) -> mlua::Result<mlua::RegistryKey> {
+    lua.load(source)
+        .eval::<mlua::Function>()
+        .and_then(|f| lua.create_registry_value(f))
 }
 
 impl Lua {
     pub fn new(config: &LuaConfig) -> crate::Result<Self> {
-        let lua = rlua::Lua::new();
+        // In order to support loading C modules in Lua, we need to create unsafe instance
+        // without debug library.
+        let lua = unsafe {
+            mlua::Lua::unsafe_new_with(mlua::StdLib::ALL_SAFE, mlua::LuaOptions::default())
+        };
 
         let additional_paths = config
             .search_dirs
@@ -130,75 +144,70 @@ impl Lua {
             .join(";");
 
         let mut timers = Vec::new();
-        lua.context(|ctx| -> crate::Result<()> {
-            if !additional_paths.is_empty() {
-                let package = ctx.globals().get::<_, rlua::Table<'_>>("package")?;
-                let current_paths = package
-                    .get::<_, String>("path")
-                    .unwrap_or_else(|_| ";".to_string());
-                let paths = format!("{};{}", additional_paths, current_paths);
-                package.set("path", paths)?;
-            }
 
-            if let Some(source) = &config.source {
-                ctx.load(source).eval().context(InvalidSource)?;
-            }
+        if !additional_paths.is_empty() {
+            let package = lua.globals().get::<_, mlua::Table<'_>>("package")?;
+            let current_paths = package
+                .get::<_, String>("path")
+                .unwrap_or_else(|_| ";".to_string());
+            let paths = format!("{};{}", additional_paths, current_paths);
+            package.set("path", paths)?;
+        }
 
-            if let Some(hooks_init) = &config.hooks.init {
-                let hooks_init: rlua::Function<'_> =
-                    ctx.load(hooks_init).eval().context(InvalidHooksInit)?;
-                ctx.set_named_registry_value("hooks_init", Some(hooks_init))?;
-            }
+        if let Some(source) = &config.source {
+            lua.load(source).eval().context(InvalidSource)?;
+        }
 
-            let hooks_process: rlua::Function<'_> = ctx
-                .load(&config.hooks.process)
-                .eval()
-                .context(InvalidHooksProcess)?;
-            ctx.set_named_registry_value("hooks_process", hooks_process)?;
+        let hook_init_code = config.hooks.init.as_ref();
+        let hook_init = hook_init_code
+            .map(|code| make_registry_value(&lua, code))
+            .transpose()
+            .context(InvalidHooksInit)?;
 
-            if let Some(hooks_shutdown) = &config.hooks.shutdown {
-                let hooks_shutdown: rlua::Function<'_> = ctx
-                    .load(hooks_shutdown)
-                    .eval()
-                    .context(InvalidHooksShutdown)?;
-                ctx.set_named_registry_value("hooks_shutdown", Some(hooks_shutdown))?;
-            }
+        let hook_process =
+            make_registry_value(&lua, &config.hooks.process).context(InvalidHooksProcess)?;
 
-            for (id, timer) in config.timers.iter().enumerate() {
-                let handler: rlua::Function<'_> = ctx
-                    .load(&timer.handler)
-                    .eval()
-                    .context(InvalidTimerHandler)?;
+        let hook_shutdown_code = config.hooks.shutdown.as_ref();
+        let hook_shutdown = hook_shutdown_code
+            .map(|code| make_registry_value(&lua, &code))
+            .transpose()
+            .context(InvalidHooksShutdown)?;
 
-                ctx.set_named_registry_value(&format!("timer_handler_{}", id), handler)?;
-                timers.push(Timer {
-                    id: id as u32,
-                    interval_seconds: timer.interval_seconds,
-                });
-            }
+        for (id, timer) in config.timers.iter().enumerate() {
+            let handler_key = lua
+                .load(&timer.handler)
+                .eval::<mlua::Function>()
+                .and_then(|f| lua.create_registry_value(f))
+                .context(InvalidTimerHandler)?;
 
-            Ok(())
-        })?;
+            let timer = Timer {
+                id: id as u32,
+                interval_seconds: timer.interval_seconds,
+            };
+            timers.push((timer, handler_key));
+        }
 
         Ok(Self {
             lua,
             invocations_after_gc: 0,
             timers,
+            hook_init,
+            hook_process,
+            hook_shutdown,
         })
     }
 
     #[cfg(test)]
-    fn process(&mut self, event: Event, output: &mut Vec<Event>) -> Result<(), rlua::Error> {
-        let result = self.lua.context(|ctx: rlua::Context<'_>| {
-            ctx.scope(|scope| {
-                let emit = scope.create_function_mut(|_, event: Event| {
-                    output.push(event);
-                    Ok(())
-                })?;
-                let process = ctx.named_registry_value::<_, rlua::Function<'_>>("hooks_process")?;
+    fn process(&mut self, event: Event, output: &mut Vec<Event>) -> Result<(), mlua::Error> {
+        let lua = &self.lua;
+        let result = lua.scope(|scope| {
+            let emit = scope.create_function_mut(|_, event: Event| {
+                output.push(event);
+                Ok(())
+            })?;
 
-                process.call((event, emit))
-            })
+            lua.registry_value::<mlua::Function>(&self.hook_process)?
+                .call((event, emit))
         });
 
         self.attempt_gc();
@@ -206,7 +215,7 @@ impl Lua {
     }
 
     #[cfg(test)]
-    fn process_single(&mut self, event: Event) -> Result<Option<Event>, rlua::Error> {
+    fn process_single(&mut self, event: Event) -> Result<Option<Event>, mlua::Error> {
         let mut out = Vec::new();
         self.process(event, &mut out)?;
         assert!(out.len() <= 1);
@@ -231,13 +240,13 @@ impl Lua {
 
 // A helper that reduces code duplication.
 fn wrap_emit_fn<'lua, 'scope, F: 'scope>(
-    scope: &rlua::Scope<'lua, 'scope>,
+    scope: &mlua::Scope<'lua, 'scope>,
     mut emit_fn: F,
-) -> rlua::Result<rlua::Function<'lua>>
+) -> mlua::Result<mlua::Function<'lua>>
 where
     F: FnMut(Event),
 {
-    scope.create_function_mut(move |_, event: Event| -> rlua::Result<()> {
+    scope.create_function_mut(move |_, event: Event| -> mlua::Result<()> {
         emit_fn(event);
         Ok(())
     })
@@ -248,14 +257,11 @@ impl RuntimeTransform for Lua {
     where
         F: FnMut(Event),
     {
-        let _ = self
-            .lua
-            .context(|ctx: rlua::Context<'_>| {
-                ctx.scope(|scope| -> rlua::Result<()> {
-                    let process =
-                        ctx.named_registry_value::<_, rlua::Function<'_>>("hooks_process")?;
-                    process.call((event, wrap_emit_fn(scope, emit_fn)?))
-                })
+        let lua = &self.lua;
+        let _ = lua
+            .scope(|scope| -> mlua::Result<()> {
+                lua.registry_value::<mlua::Function>(&self.hook_process)?
+                    .call((event, wrap_emit_fn(scope, emit_fn)?))
             })
             .context(RuntimeErrorHooksProcess)
             .map_err(|e| emit!(LuaBuildError { error: e }));
@@ -267,15 +273,15 @@ impl RuntimeTransform for Lua {
     where
         F: FnMut(Event),
     {
-        let _ = self
-            .lua
-            .context(|ctx: rlua::Context<'_>| {
-                ctx.scope(|scope| -> rlua::Result<()> {
-                    match ctx.named_registry_value::<_, Option<rlua::Function<'_>>>("hooks_init")? {
-                        Some(init) => init.call((wrap_emit_fn(scope, emit_fn)?,)),
-                        None => Ok(()),
-                    }
-                })
+        let lua = &self.lua;
+        let _ = lua
+            .scope(|scope| -> mlua::Result<()> {
+                match &self.hook_init {
+                    Some(key) => lua
+                        .registry_value::<mlua::Function>(key)?
+                        .call(wrap_emit_fn(scope, emit_fn)?),
+                    None => Ok(()),
+                }
             })
             .context(RuntimeErrorHooksInit)
             .map_err(|error| error!(%error, rate_limit = 30));
@@ -287,19 +293,17 @@ impl RuntimeTransform for Lua {
     where
         F: FnMut(Event),
     {
-        let _ = self
-            .lua
-            .context(|ctx: rlua::Context<'_>| {
-                ctx.scope(|scope| -> rlua::Result<()> {
-                    match ctx
-                        .named_registry_value::<_, Option<rlua::Function<'_>>>("hooks_shutdown")?
-                    {
-                        Some(shutdown) => shutdown.call((wrap_emit_fn(scope, emit_fn)?,)),
-                        None => Ok(()),
-                    }
-                })
+        let lua = &self.lua;
+        let _ = lua
+            .scope(|scope| -> mlua::Result<()> {
+                match &self.hook_shutdown {
+                    Some(key) => lua
+                        .registry_value::<mlua::Function>(key)?
+                        .call(wrap_emit_fn(scope, emit_fn)?),
+                    None => Ok(()),
+                }
             })
-            .context(RuntimeErrorHooksInit)
+            .context(RuntimeErrorHooksShutdown)
             .map_err(|error| error!(%error, rate_limit = 30));
 
         self.attempt_gc();
@@ -309,16 +313,12 @@ impl RuntimeTransform for Lua {
     where
         F: FnMut(Event),
     {
-        let _ = self
-            .lua
-            .context(|ctx: rlua::Context<'_>| {
-                ctx.scope(|scope| -> rlua::Result<()> {
-                    let handler_name = format!("timer_handler_{}", timer.id);
-                    let handler =
-                        ctx.named_registry_value::<_, rlua::Function<'_>>(&handler_name)?;
-
-                    handler.call((wrap_emit_fn(scope, emit_fn)?,))
-                })
+        let lua = &self.lua;
+        let _ = lua
+            .scope(|scope| -> mlua::Result<()> {
+                let handler_key = &self.timers[timer.id as usize].1;
+                lua.registry_value::<mlua::Function>(handler_key)?
+                    .call(wrap_emit_fn(scope, emit_fn)?)
             })
             .context(RuntimeErrorTimerHandler)
             .map_err(|error| error!(%error, rate_limit = 30));
@@ -327,14 +327,14 @@ impl RuntimeTransform for Lua {
     }
 
     fn timers(&self) -> Vec<Timer> {
-        self.timers.clone()
+        self.timers.iter().map(|(timer, _)| *timer).collect()
     }
 }
 
 #[cfg(test)]
-fn format_error(error: &rlua::Error) -> String {
+fn format_error(error: &mlua::Error) -> String {
     match error {
-        rlua::Error::CallbackError { traceback, cause } => format_error(cause) + "\n" + traceback,
+        mlua::Error::CallbackError { traceback, cause } => format_error(cause) + "\n" + traceback,
         err => err.to_string(),
     }
 }

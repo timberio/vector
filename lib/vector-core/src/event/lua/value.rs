@@ -1,46 +1,41 @@
-use super::util::{
-    table_is_array, table_is_timestamp, table_to_array, table_to_map, table_to_timestamp,
-    timestamp_to_table, type_name,
-};
+use super::util::{table_is_timestamp, table_to_timestamp, timestamp_to_table};
 use crate::event::Value;
-use rlua::prelude::*;
+use mlua::prelude::*;
 
 impl<'a> ToLua<'a> for Value {
-    #![allow(clippy::wrong_self_convention)] // this trait is defined by rlua
-    fn to_lua(self, ctx: LuaContext<'a>) -> LuaResult<LuaValue> {
+    #![allow(clippy::wrong_self_convention)] // this trait is defined by mlua
+    fn to_lua(self, lua: &'a Lua) -> LuaResult<LuaValue> {
         match self {
-            Value::Bytes(b) => ctx.create_string(b.as_ref()).map(LuaValue::String),
+            Value::Bytes(b) => lua.create_string(b.as_ref()).map(LuaValue::String),
             Value::Integer(i) => Ok(LuaValue::Integer(i)),
             Value::Float(f) => Ok(LuaValue::Number(f)),
             Value::Boolean(b) => Ok(LuaValue::Boolean(b)),
-            Value::Timestamp(t) => timestamp_to_table(ctx, t).map(LuaValue::Table),
-            Value::Map(m) => ctx
-                .create_table_from(m.into_iter().map(|(k, v)| (k, v)))
-                .map(LuaValue::Table),
-            Value::Array(a) => ctx.create_sequence_from(a.into_iter()).map(LuaValue::Table),
-            Value::Null => ctx.create_string("").map(LuaValue::String),
+            Value::Timestamp(t) => timestamp_to_table(lua, t).map(LuaValue::Table),
+            Value::Map(m) => lua.create_table_from(m.into_iter()).map(LuaValue::Table),
+            Value::Array(a) => lua.create_sequence_from(a.into_iter()).map(LuaValue::Table),
+            Value::Null => lua.create_string("").map(LuaValue::String),
         }
     }
 }
 
 impl<'a> FromLua<'a> for Value {
-    fn from_lua(value: LuaValue<'a>, _: LuaContext<'a>) -> LuaResult<Self> {
+    fn from_lua(value: LuaValue<'a>, lua: &'a Lua) -> LuaResult<Self> {
         match value {
             LuaValue::String(s) => Ok(Value::Bytes(Vec::from(s.as_bytes()).into())),
             LuaValue::Integer(i) => Ok(Value::Integer(i)),
             LuaValue::Number(f) => Ok(Value::Float(f)),
             LuaValue::Boolean(b) => Ok(Value::Boolean(b)),
             LuaValue::Table(t) => {
-                if table_is_array(&t)? {
-                    table_to_array(t).map(Value::Array)
+                if t.len()? > 0 {
+                    <_>::from_lua(LuaValue::Table(t), lua).map(Value::Array)
                 } else if table_is_timestamp(&t)? {
                     table_to_timestamp(t).map(Value::Timestamp)
                 } else {
-                    table_to_map(t).map(Value::Map)
+                    <_>::from_lua(LuaValue::Table(t), lua).map(Value::Map)
                 }
             }
-            other => Err(rlua::Error::FromLuaConversionError {
-                from: type_name(&other),
+            other => Err(mlua::Error::FromLuaConversionError {
+                from: other.type_name(),
                 to: "Value",
                 message: Some("Unsupported Lua type".to_string()),
             }),
@@ -96,12 +91,11 @@ mod test {
             ),
         ];
 
-        Lua::new().context(move |ctx| {
-            for (expression, expected) in pairs {
-                let value: Value = ctx.load(expression).eval().unwrap();
-                assert_eq!(value, expected, "expression: {:?}", expression);
-            }
-        });
+        let lua = Lua::new();
+        for (expression, expected) in pairs {
+            let value: Value = lua.load(expression).eval().unwrap();
+            assert_eq!(value, expected, "expression: {:?}", expression);
+        }
     }
 
     #[test]
@@ -189,23 +183,23 @@ mod test {
             ),
         ];
 
-        Lua::new().context(move |ctx| {
-            for (value, test_src) in pairs {
-                let test_fn: LuaFunction = ctx.load(test_src).eval().unwrap_or_else(|_| {
-                    panic!("Failed to load {} for value {:?}", test_src, value)
-                });
-                assert!(
-                    test_fn
-                        .call::<_, bool>(value.clone())
-                        .unwrap_or_else(|_| panic!(
-                            "Failed to call {} for value {:?}",
-                            test_src, value
-                        )),
-                    "Test function: {}, value: {:?}",
-                    test_src,
-                    value
-                );
-            }
-        });
+        let lua = Lua::new();
+        for (value, test_src) in pairs {
+            let test_fn: LuaFunction = lua
+                .load(test_src)
+                .eval()
+                .unwrap_or_else(|_| panic!("Failed to load {} for value {:?}", test_src, value));
+            assert!(
+                test_fn
+                    .call::<_, bool>(value.clone())
+                    .unwrap_or_else(|_| panic!(
+                        "Failed to call {} for value {:?}",
+                        test_src, value
+                    )),
+                "Test function: {}, value: {:?}",
+                test_src,
+                value
+            );
+        }
     }
 }

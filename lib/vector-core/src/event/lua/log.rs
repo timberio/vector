@@ -1,19 +1,17 @@
-use super::util::type_name;
 use crate::event::{LogEvent, Value};
-use rlua::prelude::*;
+use mlua::prelude::*;
 
 impl<'a> ToLua<'a> for LogEvent {
-    #![allow(clippy::wrong_self_convention)] // this trait is defined by rlua
-    fn to_lua(self, ctx: LuaContext<'a>) -> LuaResult<LuaValue> {
+    #![allow(clippy::wrong_self_convention)] // this trait is defined by mlua
+    fn to_lua(self, lua: &'a Lua) -> LuaResult<LuaValue> {
         let (fields, _metadata) = self.into_parts();
         // The metadata is handled when converting the enclosing `Event`.
-        ctx.create_table_from(fields.into_iter().map(|(k, v)| (k, v)))
-            .map(LuaValue::Table)
+        lua.create_table_from(fields).map(LuaValue::Table)
     }
 }
 
 impl<'a> FromLua<'a> for LogEvent {
-    fn from_lua(value: LuaValue<'a>, _: LuaContext<'a>) -> LuaResult<Self> {
+    fn from_lua(value: LuaValue<'a>, _: &'a Lua) -> LuaResult<Self> {
         match value {
             LuaValue::Table(t) => {
                 let mut log = LogEvent::default();
@@ -23,8 +21,8 @@ impl<'a> FromLua<'a> for LogEvent {
                 }
                 Ok(log)
             }
-            _ => Err(rlua::Error::FromLuaConversionError {
-                from: type_name(&value),
+            _ => Err(mlua::Error::FromLuaConversionError {
+                from: value.type_name(),
                 to: "LogEvent",
                 message: Some("LogEvent should ba a Lua table".to_string()),
             }),
@@ -57,16 +55,15 @@ mod test {
             "log.nested.array[3] == 'another value'",
         ];
 
-        Lua::new().context(move |ctx| {
-            ctx.globals().set("log", log.clone()).unwrap();
-            for assertion in assertions {
-                let result: bool = ctx
-                    .load(assertion)
-                    .eval()
-                    .unwrap_or_else(|_| panic!("Failed to verify assertion {:?}", assertion));
-                assert!(result, "{}", assertion);
-            }
-        });
+        let lua = Lua::new();
+        lua.globals().set("log", log.clone()).unwrap();
+        for assertion in assertions {
+            let result: bool = lua
+                .load(assertion)
+                .eval()
+                .unwrap_or_else(|_| panic!("Failed to verify assertion {:?}", assertion));
+            assert!(result, "{}", assertion);
+        }
     }
 
     #[test]
@@ -80,20 +77,19 @@ mod test {
             }
         }
         "#;
-        Lua::new().context(move |ctx| {
-            let event: LogEvent = ctx.load(lua_event).eval().unwrap();
 
-            assert_eq!(event["a"], Value::Integer(1));
-            assert_eq!(event["nested.field"], Value::Bytes("2".into()));
-            assert_eq!(
-                event["nested.array[0]"],
-                Value::Bytes("example value".into())
-            );
-            assert_eq!(event["nested.array[1]"], Value::Bytes("".into()));
-            assert_eq!(
-                event["nested.array[2]"],
-                Value::Bytes("another value".into())
-            );
-        });
+        let event: LogEvent = Lua::new().load(lua_event).eval().unwrap();
+
+        assert_eq!(event["a"], Value::Integer(1));
+        assert_eq!(event["nested.field"], Value::Bytes("2".into()));
+        assert_eq!(
+            event["nested.array[0]"],
+            Value::Bytes("example value".into())
+        );
+        assert_eq!(event["nested.array[1]"], Value::Bytes("".into()));
+        assert_eq!(
+            event["nested.array[2]"],
+            Value::Bytes("another value".into())
+        );
     }
 }
