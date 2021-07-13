@@ -10,4 +10,8 @@ releases: "0.13.1": {
 		"""
 
 	whats_next: []
+
+	commits: [
+		{sha: "38f9b78aa693b941be33d33b7520fe3821d15df6", date: "2021-04-28 20:44:52 UTC", description: "Fix runaway memory usage of kafka source ", pr_number: 7266, scopes: ["kafka source"], type: "fix", breaking_change: false, author: "Jesse Szwedko", files_count: 2, insertions_count: 118, deletions_count: 126},
+	]
 }

@@ -27,7 +27,7 @@ module Vector
       :whats_next
 
     def initialize(hash)
-      @codename = hash.fetch("codename")
+      @codename = hash.fetch("codename", "")
       @commits = hash.fetch("commits").collect { |commit_hash| Commit.new(commit_hash) }
       @date = hash.fetch("date")
       @name = hash.fetch("name")
