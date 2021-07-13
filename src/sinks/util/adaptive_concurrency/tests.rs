@@ -404,8 +404,7 @@ async fn run_test(params: TestParams) -> TestResults {
         .expect("Failed to unwrap controller_stats Mutex");
 
     let metrics = capture_metrics(controller)
-        .map(Event::into_metric)
-        .map(|event| (event.name().to_string(), event))
+        .map(|metric| (metric.name().to_string(), metric))
         .collect::<HashMap<_, _>>();
     // Ensure basic statistics are captured, don't actually examine them
     assert!(matches!(

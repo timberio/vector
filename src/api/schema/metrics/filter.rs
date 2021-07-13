@@ -1,6 +1,6 @@
 use super::{EventsInTotal, EventsOutTotal, ProcessedBytesTotal, ProcessedEventsTotal};
 use crate::{
-    event::{Event, Metric, MetricValue},
+    event::{Metric, MetricValue},
     metrics::{capture_metrics, get_controller, Controller},
 };
 use async_stream::stream;
@@ -124,10 +124,8 @@ pub fn get_metrics(interval: i32) -> impl Stream<Item = Metric> {
     stream! {
         loop {
             interval.tick().await;
-            for ev in capture_metrics(controller) {
-                if let Event::Metric(m) = ev {
-                    yield m;
-                }
+            for m in capture_metrics(controller) {
+                yield m;
             }
         }
     }
@@ -140,12 +138,7 @@ pub fn get_all_metrics(interval: i32) -> impl Stream<Item = Vec<Metric>> {
     stream! {
         loop {
             interval.tick().await;
-            yield capture_metrics(controller)
-                .filter_map(|m| match m {
-                    Event::Metric(m) => Some(m),
-                    _ => None,
-                })
-                .collect()
+            yield capture_metrics(controller).collect()
         }
     }
 }
@@ -153,10 +146,7 @@ pub fn get_all_metrics(interval: i32) -> impl Stream<Item = Vec<Metric>> {
 /// Return Vec<Metric> based on a component name tag.
 pub fn by_component_name(component_name: &str) -> Vec<Metric> {
     capture_metrics(&GLOBAL_CONTROLLER)
-        .filter_map(|ev| match ev {
-            Event::Metric(m) if m.tag_matches("component_name", component_name) => Some(m),
-            _ => None,
-        })
+        .filter_map(|m| m.tag_matches("component_name", component_name).then(|| m))
         .collect()
 }
 

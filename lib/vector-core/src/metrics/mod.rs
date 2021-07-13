@@ -4,7 +4,7 @@ mod recorder;
 
 use std::sync::Arc;
 
-use crate::event::{Event, Metric};
+use crate::event::Metric;
 pub use crate::metrics::handle::{Counter, Handle};
 use crate::metrics::label_filter::VectorLabelFilter;
 use crate::metrics::recorder::VectorRecorder;
@@ -109,25 +109,25 @@ pub fn get_controller() -> crate::Result<&'static Controller> {
 
 /// Take a snapshot of all gathered metrics and expose them as metric
 /// [`Event`]s.
-pub fn capture_metrics(controller: &Controller) -> impl Iterator<Item = Event> {
-    let mut events: Vec<Event> = Vec::new();
+pub fn capture_metrics(controller: &Controller) -> impl Iterator<Item = Metric> {
+    let mut metrics: Vec<Metric> = Vec::new();
     controller.registry.visit(|_kind, (key, handle)| {
-        events.push(Metric::from_metric_kv(key, handle.get_inner()).into());
+        metrics.push(Metric::from_metric_kv(key, handle.get_inner()));
     });
 
     // Add alias `events_processed_total` for `events_out_total`.
-    for i in 0..events.len() {
-        let metric = events[i].as_metric();
+    for i in 0..metrics.len() {
+        let metric = &metrics[i];
         if metric.name() == "events_out_total" {
             let alias = metric.clone().with_name("processed_events_total");
-            events.push(alias.into());
+            metrics.push(alias);
         }
     }
 
-    let handle = Handle::Counter(Arc::new(Counter::with_count(events.len() as u64 + 1)));
-    events.push(Metric::from_metric_kv(&CARDINALITY_KEY, &handle).into());
+    let handle = Handle::Counter(Arc::new(Counter::with_count(metrics.len() as u64 + 1)));
+    metrics.push(Metric::from_metric_kv(&CARDINALITY_KEY, &handle));
 
-    events.into_iter()
+    metrics.into_iter()
 }
 
 #[macro_export]

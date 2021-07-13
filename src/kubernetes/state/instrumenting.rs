@@ -106,11 +106,10 @@ mod tests {
         );
 
         crate::metrics::capture_metrics(controller)
-            .find(|event| {
-                let metric = event.as_metric();
+            .find(|metric| {
                 metric.name() == "k8s_state_ops_total" && metric.tags() == tags_to_lookup.as_ref()
             })
-            .map(|event| event.into_metric().value().clone())
+            .map(|metric| metric.value().clone())
     }
 
     fn assert_counter_changed(
