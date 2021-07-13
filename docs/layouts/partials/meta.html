@@ -38,5 +38,5 @@
 {{/* For Algolia search */}}
 <meta name="algolia:title" content="{{ .Title }}">
 {{ with .Params.tags }}
-<meta name="algolia:tags" content="{{ delimit . "," }}">
+<meta name="keywords" content="{{ delimit . "," }}">
 {{ end }}

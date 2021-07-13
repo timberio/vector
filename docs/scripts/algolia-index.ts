@@ -76,7 +76,7 @@ async function indexHTMLFiles(
     const containers = $("#page-content");
     const pageTitle = $('meta[name="algolia:title"]').attr('content') || "";
 
-    const pageTags = $('meta[name="algolia:tags"]').attr('content')?.split(",") || [];
+    const pageTags = $('meta[name="keywords"]').attr('content')?.split(",") || [];
 
     // @ts-ignore
     $(".algolia-no-index").each((_, d) => $(d).remove());
