@@ -38,8 +38,10 @@ pub struct SplunkConfig {
     /// Local address on which to listen
     #[serde(default = "default_socket_address")]
     address: SocketAddr,
-    /// Splunk HEC token
+    /// Splunk HEC token. Deprecated - use `valid_tokens` instead
     token: Option<String>,
+    /// A list of tokens to accept. Omit this to accept any token
+    valid_tokens: Option<Vec<String>>,
     tls: Option<TlsConfig>,
 }
 
@@ -64,6 +66,7 @@ impl Default for SplunkConfig {
         SplunkConfig {
             address: default_socket_address(),
             token: None,
+            valid_tokens: None,
             tls: None,
         }
     }
@@ -136,16 +139,15 @@ impl SourceConfig for SplunkConfig {
 
 /// Shared data for responding to requests.
 struct SplunkSource {
-    credentials: Option<Bytes>,
+    valid_credentials: Vec<String>,
 }
 
 impl SplunkSource {
     fn new(config: &SplunkConfig) -> Self {
+        let valid_tokens = config.valid_tokens.iter().flatten()
+            .chain(config.token.iter());
         SplunkSource {
-            credentials: config
-                .token
-                .as_ref()
-                .map(|token| format!("Splunk {}", token).into()),
+            valid_credentials: valid_tokens.map(|token| format!("Splunk {}", token)).collect(),
         }
     }
 
@@ -246,16 +248,16 @@ impl SplunkSource {
     }
 
     fn health_service(&self) -> BoxedFilter<(Response,)> {
-        let credentials = self.credentials.clone();
+        let valid_credentials = self.valid_credentials.clone();
         let authorize =
             warp::header::optional("Authorization").and_then(move |token: Option<String>| {
-                let credentials = credentials.clone();
+                let valid_credentials = valid_credentials.clone();
                 async move {
-                    match (token, credentials) {
-                        (_, None) => Ok(()),
-                        (Some(token), Some(password)) if token.as_bytes() == password.as_ref() => {
-                            Ok(())
-                        }
+                    if valid_credentials.is_empty() {
+                        return Ok(());
+                    }
+                    match token {
+                        Some(token) if valid_credentials.contains(&token) => Ok(()),
                         _ => Err(Rejection::from(ApiError::BadRequest)),
                     }
                 }
@@ -287,18 +289,16 @@ impl SplunkSource {
 
     /// Authorize request
     fn authorization(&self) -> BoxedFilter<((),)> {
-        let credentials = self.credentials.clone();
+        let valid_credentials = self.valid_credentials.clone();
         warp::header::optional("Authorization")
             .and_then(move |token: Option<String>| {
-                let credentials = credentials.clone();
+                let valid_credentials = valid_credentials.clone();
                 async move {
-                    match (token, credentials) {
-                        (_, None) => Ok(()),
-                        (Some(token), Some(password)) if token.as_bytes() == password.as_ref() => {
-                            Ok(())
-                        }
-                        (Some(_), Some(_)) => Err(Rejection::from(ApiError::InvalidAuthorization)),
-                        (None, Some(_)) => Err(Rejection::from(ApiError::MissingAuthorization)),
+                    match (token, valid_credentials.is_empty()) {
+                        (_, true) => Ok(()),
+                        (Some(token), false) if valid_credentials.contains(&token) => Ok(()),
+                        (Some(_), false) => Err(Rejection::from(ApiError::InvalidAuthorization)),
+                        (None, false) => Err(Rejection::from(ApiError::MissingAuthorization)),
                     }
                 }
             })
@@ -789,18 +789,21 @@ mod tests {
 
     /// Splunk token
     const TOKEN: &str = "token";
+    const VALID_TOKENS: &[&str; 2] = &[TOKEN, "secondary-token"];
 
     async fn source() -> (mpsc::Receiver<Event>, SocketAddr) {
-        source_with(Some(TOKEN.to_owned())).await
+        source_with(Some(TOKEN.to_owned()), None).await
     }
 
-    async fn source_with(token: Option<String>) -> (mpsc::Receiver<Event>, SocketAddr) {
+    async fn source_with(token: Option<String>, valid_tokens: Option<&[&str]>) -> (mpsc::Receiver<Event>, SocketAddr) {
         let (sender, recv) = Pipeline::new_test();
         let address = next_addr();
+        let valid_tokens = valid_tokens.map(|tokens| tokens.iter().map(|&token| String::from(token)).collect());
         tokio::spawn(async move {
             SplunkConfig {
                 address,
                 token,
+                valid_tokens,
                 tls: None,
             }
             .build(SourceContext::new_test(sender))
@@ -1201,11 +1204,35 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn secondary_token() {
+        trace_init();
+
+        let message = r#"{"event":"first", "color": "blue"}"#;
+        let (_source, address) = source_with(None, Some(VALID_TOKENS)).await;
+        let options = SendWithOpts {
+            channel: None,
+            forwarded_for: None,
+        };
+
+        assert_eq!(
+            200,
+            send_with(
+                address,
+                "services/collector/event",
+                message,
+                &VALID_TOKENS.get(1).unwrap(),
+                &options
+            )
+            .await
+        );
+    }
+
+    #[tokio::test]
     async fn no_authorization() {
         trace_init();
 
         let message = "no_authorization";
-        let (source, address) = source_with(None).await;
+        let (source, address) = source_with(None, None).await;
         let (sink, health) = sink(address, Encoding::Text, Compression::gzip_default()).await;
         assert!(health.await.is_ok());
 
