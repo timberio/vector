@@ -1118,6 +1118,7 @@ mod integration_tests {
         test_util::{random_events_with_stream, random_string, trace_init},
         tls::{self, TlsOptions},
     };
+    use chrono::Utc;
     use futures::{stream, StreamExt};
     use http::{Request, StatusCode};
     use hyper::Body;
@@ -1396,7 +1397,7 @@ mod integration_tests {
             .await
             .expect("Data stream creation error");
 
-        run_insert_tests_with_config(&cfg, true, BatchStatus::Delivered).await;
+        run_insert_tests_with_config(&cfg, false, BatchStatus::Delivered).await;
     }
 
     async fn run_insert_tests(
@@ -1429,7 +1430,14 @@ mod integration_tests {
         batch_status: BatchStatus,
     ) {
         let common = ElasticSearchCommon::parse_config(&config).expect("Config error");
-        let index = config.index.clone().unwrap();
+        let index = match config.mode {
+            // Data stream mode uses an index name generated from the event.
+            ElasticSearchMode::DataStream => format!(
+                "{}",
+                Utc::now().format(".ds-logs-generic-default-%Y.%m.%d-000001")
+            ),
+            ElasticSearchMode::Normal => config.index.clone().unwrap(),
+        };
         let base_url = common.base_url.clone();
 
         let cx = SinkContext::new_test();
@@ -1442,6 +1450,10 @@ mod integration_tests {
 
         let (batch, mut receiver) = BatchNotifier::new_with_receiver();
         let (input, events) = random_events_with_stream(100, 100, Some(batch));
+        let events = events.map(|mut event| {
+            event.as_mut_log().insert("@timestamp", chrono::Utc::now());
+            event
+        });
         if break_events {
             // Break all but the first event to simulate some kind of partial failure
             let mut doit = false;
@@ -1464,7 +1476,7 @@ mod integration_tests {
         flush(common).await.expect("Flushing writes failed");
 
         let client = create_http_client();
-        let response = client
+        let mut response = client
             .get(&format!("{}/{}/_search", base_url, index))
             .basic_auth("elastic", Some("vector"))
             .json(&json!({
@@ -1488,7 +1500,7 @@ mod integration_tests {
             assert_eq!(input.len() as u64, total);
 
             let hits = response["hits"]["hits"]
-                .as_array()
+                .as_array_mut()
                 .expect("Elasticsearch response does not include hits->hits");
             let input = input
                 .into_iter()
@@ -1496,8 +1508,10 @@ mod integration_tests {
                 .collect::<Vec<_>>();
             for hit in hits {
                 let hit = hit
-                    .get("_source")
+                    .get_mut("_source")
                     .expect("Elasticsearch hit missing _source");
+                hit.as_object_mut().unwrap().remove("data_stream");
+                hit.as_object_mut().unwrap().remove("@timestamp");
                 assert!(input.contains(&hit));
             }
         }
