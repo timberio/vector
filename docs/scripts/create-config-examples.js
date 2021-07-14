@@ -1,9 +1,12 @@
 const fs = require('fs');
 const docsFile = "data/docs.json";
+const chalk = require('chalk');
 const TOML = require('@iarna/toml');
 const YAML = require('yaml');
 
 try {
+  chalk.blue("Creating example configurations for all Vector components");
+
   const data = fs.readFileSync(docsFile, 'utf8');
   const docs = JSON.parse(data);
   const components = docs.components;
@@ -31,30 +34,31 @@ try {
         }
       }
 
-      var common = {};
-      common[kind] = {};
-
       const keyName = `my_${kind.substring(0, kind.length - 1)}_id`;
 
-      common[kind][keyName] = {
-        "type": componentType,
+      var example = {
+        [kind]: {
+          [keyName]: {
+            "type": componentType,
+          }
+        }
       };
 
-      const commonToml = TOML.stringify(common);
-      const commonYaml = `---\n${YAML.stringify(common)}`;
-      const commonJson = JSON.stringify(common);
+      const common = example;
+      const advanced = example;
 
-      console.log(commonYaml);
-
-      docs['components'][kind][componentType]['example_configs'] = {};
-      docs['components'][kind][componentType]['example_configs']['toml'] = {};
-      docs['components'][kind][componentType]['example_configs']['toml']['common'] = commonToml;
-
-      docs['components'][kind][componentType]['example_configs']['yaml'] = {};
-      docs['components'][kind][componentType]['example_configs']['yaml']['common'] = commonYaml;
-
-      docs['components'][kind][componentType]['example_configs']['json'] = {};
-      docs['components'][kind][componentType]['example_configs']['json']['common'] = commonJson;
+      docs['components'][kind][componentType]['example_configs'] = {
+        common: {
+          toml: TOML.stringify(common),
+          yaml: `---\n${YAML.stringify(common)}`,
+          json: JSON.stringify(common, null, 2),
+        },
+        advanced: {
+          toml: TOML.stringify(advanced),
+          yaml: `---\n${YAML.stringify(advanced)}`,
+          json: JSON.stringify(advanced, null, 2)
+        },
+      };
     }
   }
 

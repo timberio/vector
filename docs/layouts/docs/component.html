@@ -8,6 +8,7 @@
 {{ $kindSingular := $kind | singularize }}
 {{ $config := index (index site.Data.docs.components $kind) $tag }}
 {{ $desc := .Description | default $config.description }}
+{{ $exampleConfigs := $config.example_configs }}
 <div class="relative max-w-3xl mx-auto px-6 lg:px-8 lg:max-w-7xl mt-8">
   <div class="lg:grid lg:grid-cols-16 lg:gap-8">
     <div class="hidden lg:block lg:col-span-5 xl:col-span-4 pr-0 lg:pr-6 md:pr-2">
@@ -34,8 +35,7 @@
 
         {{ partial "docs/component-under-hero.html" . }}
 
-        <div class="mt-12 prose dark:prose-dark tracking-tight pb-32">
-          {{ with $config.alias }}
+        <div class="mt-12 prose dark:prose-dark tracking-tight pb-32">          {{ with $config.alias }}
           {{ partial "heading.html" (dict "text" "Alias" "level" 2) }}
 
           <p>
@@ -64,6 +64,9 @@
           {{ with $config.configuration }}
           {{ if gt (len .) 1 }} {{/* Don't display if only the "type" config is present */}}
           {{ partial "heading.html" (dict "text" "Configuration" "level" 2) }}
+
+          {{ partial "components/example-configs.html" (dict "examples" $exampleConfigs) }}
+
           {{ partial "data.html" (dict "component_config" . ) }}
           {{ end }}
           {{ end }}
