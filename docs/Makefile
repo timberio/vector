@@ -23,7 +23,12 @@ cue-list:
 cue-vet:
 	${CUE} vet
 
-serve: setup cue-build
+config-examples:
+	yarn run config-examples
+
+structured-data: cue-build config-examples
+
+serve: setup structured-data
 	hugo server \
 	--buildDrafts \
 	--buildFuture \
@@ -35,7 +40,7 @@ production-build:
 	--environment "production" \
 	--minify
 
-ci-production-build: setup cue-build production-build run-link-checker algolia
+ci-production-build: setup structured-data production-build run-link-checker algolia
 
 # Preview site
 preview-build:
@@ -45,7 +50,7 @@ preview-build:
 	--environment "preview" \
 	--minify
 
-ci-preview-build: setup cue-build preview-build algolia
+ci-preview-build: setup structured-data preview-build algolia
 
 run-link-checker:
 	htmltest
@@ -68,6 +73,6 @@ run-production-site-locally:
 	python -m http.server 8000 --directory ./public --bind 127.0.0.1
 
 # Full local builds without Algolia updates (for debugging, link checking, etc.)
-local-production-build: clean setup cue-build production-build run-link-checker
+local-production-build: clean setup structured-data production-build run-link-checker
 
-local-preview-build: clean setup cue-build preview-build run-link-checker
+local-preview-build: clean setup structured-data preview-build run-link-checker

@@ -1,0 +1,29 @@
+{{ $examples := .examples }}
+{{ $levels := slice "common" "advanced" }}
+{{ $formats := slice "toml" "yaml" "json" }}
+<div x-data="{ level: 'common', format: 'toml' }" class="no-prose">
+  <div class="flex space-x-2">
+    {{ range $levels }}
+    <button :class="{ 'text-primary': level === '{{ . }}' }" @click="level = '{{ . }}'">
+      {{ . | title }}
+    </button>
+    {{ end }}
+
+    {{ range $formats }}
+    <button :class="{ 'text-primary': format === '{{ . }}' }" @click="format = '{{ . }}'">
+      {{ . | upper }}
+    </button>
+    {{ end }}
+  </div>
+
+  {{ range $levels }}
+  {{ $example := index $examples . }}
+  <div x-show="level === '{{ . }}'">
+    {{ range $format, $v := $example }}
+    <div x-show="format === '{{ $format }}'">
+      {{ highlight $v $format "" }}
+    </div>
+    {{ end }}
+  </div>
+  {{ end }}
+</div>
