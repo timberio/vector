@@ -5,6 +5,7 @@ use crate::{
 use futures::FutureExt;
 use serde::{Deserialize, Serialize};
 use std::{fmt, net::SocketAddr};
+use warp::Filter;
 
 pub mod errors;
 mod filters;
@@ -54,7 +55,8 @@ impl SourceConfig for AwsKinesisFirehoseConfig {
 
         let shutdown = cx.shutdown;
         Ok(Box::pin(async move {
-            warp::serve(svc)
+            let span = crate::trace::current_span();
+            warp::serve(svc.with(warp::trace(move |_info| span.clone())))
                 .serve_incoming_with_graceful_shutdown(
                     listener.accept_stream(),
                     shutdown.map(|_| ()),

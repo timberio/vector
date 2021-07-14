@@ -110,7 +110,8 @@ impl SourceConfig for SplunkConfig {
 
         let shutdown = cx.shutdown;
         Ok(Box::pin(async move {
-            warp::serve(services)
+            let span = crate::trace::current_span();
+            warp::serve(services.with(warp::trace(move |_info| span.clone())))
                 .serve_incoming_with_graceful_shutdown(
                     listener.accept_stream(),
                     shutdown.map(|_| ()),
