@@ -54,8 +54,4 @@ ignore = [
     # Memory access due to code generation flaw in Cranelift module
     # https://github.com/timberio/vector/issues/7558
     "RUSTSEC-2021-0067",
-
-    # Conversion from prost_types::Timestamp to SystemTime can cause an overflow and panic
-    # https://github.com/timberio/vector/issues/8184
-    "RUSTSEC-2021-0073",
 ]
