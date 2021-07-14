@@ -20,21 +20,26 @@ try {
     // Specific components
     for (const componentType in componentsOfKind) {
       const component = componentsOfKind[componentType];
-      var config = {
+      const configuration = component.configuration;
+
+      var exampleConfig = {
         kind: kind,
         "type": componentType
       };
 
-      var required = {};
+      var requiredParams = [];
 
       // Config parameters
-      for (const paramName in component.configuration) {
-        const param = component.configuration[paramName];
+      for (const paramName in configuration) {
+        const param = configuration[paramName];
 
         if (param.required) {
-          required[paramName] = param;
+          requiredParams.push(paramName);
         }
       }
+
+      // Remove the "type" param from required, which is added elsewhere
+      requiredParams = requiredParams.filter(p => p != "type");
 
       const keyName = `my_${kind.substring(0, kind.length - 1)}_id`;
 
@@ -45,6 +50,10 @@ try {
           }
         }
       };
+
+      if (['sinks', 'transforms'].includes(kind)) {
+        example[kind][keyName]['inputs'] = ['my-source-or-transform-id']
+      }
 
       const common = example;
       const advanced = example;
