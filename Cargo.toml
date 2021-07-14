@@ -127,7 +127,7 @@ opentelemetry = { version = "0.15.0", default-features = false, features = ["tra
 opentelemetry-datadog = { version = "0.3.1", default-features = false, features = ["reqwest-client"] }
 
 # Metrics
-metrics = { version = "0.16.0", default-features = false, features = ["std"] }
+metrics = { version = "0.17.0", default-features = false, features = ["std"] }
 metrics-tracing-context = { version = "0.6.0", default-features = false }
 metrics-util = { version = "0.9.1", default-features = false, features = ["std"] }
 
