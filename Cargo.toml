@@ -419,6 +419,7 @@ sources-logs = [
   "sources-stdin",
   "sources-syslog",
   "sources-vector",
+  "sources-nats",
 ]
 sources-metrics = [
   "sources-apache_metrics",
@@ -453,6 +454,7 @@ sources-internal_logs = []
 sources-internal_metrics = []
 sources-journald = []
 sources-kafka = ["rdkafka"]
+sources-nats = ["async-nats"]
 sources-logstash = ["bytesize", "listenfd", "tokio-util/net", "sources-utils-tcp-keepalive", "sources-utils-tcp-socket", "sources-utils-tls"]
 sources-kubernetes-logs = ["file-source", "kubernetes", "transforms-merge", "transforms-regex_parser"]
 sources-mongodb_metrics = ["mongodb"]
@@ -699,7 +701,7 @@ kafka-integration-tests = ["sinks-kafka", "sources-kafka"]
 logstash-integration-tests = ["docker", "sources-logstash", "uuid"]
 loki-integration-tests = ["sinks-loki"]
 mongodb_metrics-integration-tests = ["sources-mongodb_metrics"]
-nats-integration-tests = ["sinks-nats"]
+nats-integration-tests = ["sinks-nats", "sources-nats"]
 nginx-integration-tests = ["sources-nginx_metrics"]
 postgresql_metrics-integration-tests = ["sources-postgresql_metrics"]
 prometheus-integration-tests = ["bytesize", "sinks-prometheus", "sources-prometheus"]

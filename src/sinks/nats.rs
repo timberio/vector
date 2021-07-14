@@ -30,7 +30,7 @@ enum BuildError {
 pub struct NatsSinkConfig {
     encoding: EncodingConfig<Encoding>,
     #[serde(default = "default_name")]
-    name: String,
+    connection_name: String,
     subject: String,
     url: String,
 }
@@ -55,7 +55,7 @@ impl GenerateConfig for NatsSinkConfig {
         toml::from_str(
             r#"
             encoding.codec = "json"
-            name = "vector"
+            connection_name = "vector"
             subject = "from.vector"
             url = "nats://127.0.0.1:4222""#,
         )
@@ -89,7 +89,7 @@ impl NatsSinkConfig {
         // Set reconnect_buffer_size on the nats client to 0 bytes so that the
         // client doesn't buffer internally (to avoid message loss).
         async_nats::Options::new()
-            .with_name(&self.name)
+            .with_name(&self.connection_name)
             .reconnect_buffer_size(0)
     }
 
@@ -111,7 +111,7 @@ async fn healthcheck(config: NatsSinkConfig) -> crate::Result<()> {
 
 #[derive(Clone)]
 struct NatsOptions {
-    name: String,
+    connection_name: String,
 }
 
 pub struct NatsSink {
@@ -137,7 +137,7 @@ impl NatsSink {
 impl From<NatsOptions> for async_nats::Options {
     fn from(options: NatsOptions) -> Self {
         async_nats::Options::new()
-            .with_name(&options.name)
+            .with_name(&options.connection_name)
             .reconnect_buffer_size(0)
     }
 }
@@ -145,7 +145,7 @@ impl From<NatsOptions> for async_nats::Options {
 impl From<&NatsSinkConfig> for NatsOptions {
     fn from(options: &NatsSinkConfig) -> Self {
         Self {
-            name: options.name.clone(),
+            connection_name: options.connection_name.clone(),
         }
     }
 }
@@ -259,7 +259,7 @@ mod integration_tests {
 
         let cnf = NatsSinkConfig {
             encoding: EncodingConfig::from(Encoding::Text),
-            name: "".to_owned(),
+            connection_name: "".to_owned(),
             subject: subject.clone(),
             url: "nats://127.0.0.1:4222".to_owned(),
         };

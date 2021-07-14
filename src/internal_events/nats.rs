@@ -3,6 +3,22 @@ use metrics::counter;
 use std::io::Error;
 
 #[derive(Debug)]
+pub struct NatsEventReceived {
+    pub byte_size: usize,
+}
+
+impl InternalEvent for NatsEventReceived {
+    fn emit_logs(&self) {
+        trace!(message = "Received one event.", internal_log_rate_secs = 10);
+    }
+
+    fn emit_metrics(&self) {
+        counter!("events_in_total", 1);
+        counter!("processed_bytes_total", self.byte_size as u64);
+    }
+}
+
+#[derive(Debug)]
 pub struct NatsEventSendSuccess {
     pub byte_size: usize,
 }
