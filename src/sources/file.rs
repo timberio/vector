@@ -977,7 +977,7 @@ mod tests {
 
         // First time server runs it picks up existing lines.
         {
-            let received = run_file_source(&config, false, acking, async {
+            let received = run_file_source(&config, true, acking, async {
                 sleep_500_millis().await;
                 writeln!(&mut file, "first line").unwrap();
                 sleep_500_millis().await;
@@ -989,7 +989,7 @@ mod tests {
         }
         // Restart server, read file from checkpoint.
         {
-            let received = run_file_source(&config, false, acking, async {
+            let received = run_file_source(&config, true, acking, async {
                 sleep_500_millis().await;
                 writeln!(&mut file, "second line").unwrap();
                 sleep_500_millis().await;
