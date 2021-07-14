@@ -129,7 +129,7 @@ opentelemetry-datadog = { version = "0.3.1", default-features = false, features 
 # Metrics
 metrics = { version = "0.16.0", default-features = false, features = ["std"] }
 metrics-tracing-context = { version = "0.6.0", default-features = false }
-metrics-util = { version = "0.9.1", default-features = false, features = ["std"] }
+metrics-util = { version = "0.10.0", default-features = false, features = ["std"] }
 
 # Aws
 rusoto_cloudwatch = { version = "0.47.0", optional = true }

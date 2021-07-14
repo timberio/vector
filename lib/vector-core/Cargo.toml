@@ -22,7 +22,7 @@ lazy_static = { version = "1.4.0", default-features = false }
 lookup = { path = "../lookup", features = ["arbitrary"] }
 metrics = { version = "0.16.0", default-features = false, features = ["std"]}
 metrics-tracing-context = { version = "0.6.0", default-features = false }
-metrics-util = { version = "0.9.1", default-features = false, features = ["std"] }
+metrics-util = { version = "0.10.0", default-features = false, features = ["std"] }
 once_cell = { version = "1.8", default-features = false }
 pest = { version = "2.1.3", default-features = false }
 pest_derive = { version = "2.1.0", default-features = false }

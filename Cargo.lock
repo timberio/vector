@@ -41,9 +41,9 @@ checksum = "aae1277d39aeec15cb388266ecc24b11c80469deae6067e17a1a7aa9e5c1f234"
 
 [[package]]
 name = "ahash"
-version = "0.7.2"
+version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f200cbb1e856866d9eade941cf3aa0c5d7dd36f74311c4273b494f4ef036957"
+checksum = "43bb833f0bf979d8475d38fbf09ed3b8a55e1885fe93ad3f93239fc6a4f17b98"
 dependencies = [
  "getrandom 0.2.2",
  "once_cell",
@@ -929,7 +929,7 @@ dependencies = [
  "db-key",
  "futures 0.3.15",
  "leveldb",
- "metrics",
+ "metrics 0.16.0",
  "pin-project 1.0.7",
  "pretty_assertions",
  "quickcheck",
@@ -3962,6 +3962,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "metrics"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a00f42f354a2ed4894db863b3a4db47aef2d2e4435b937221749bd37a8a7aaa8"
+dependencies = [
+ "ahash",
+ "metrics-macros",
+ "proc-macro-hack",
+]
+
+[[package]]
 name = "metrics-macros"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3982,8 +3993,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2b0900f96236eaa964bb4b94d5cf300b1455ca3a9f28a5c9ba7dbc7deb633a3"
 dependencies = [
  "itoa",
- "metrics",
- "metrics-util",
+ "metrics 0.16.0",
+ "metrics-util 0.9.1",
  "tracing 0.1.26",
  "tracing-core 0.1.18",
  "tracing-subscriber",
@@ -4002,7 +4013,7 @@ dependencies = [
  "dashmap",
  "hashbrown",
  "indexmap",
- "metrics",
+ "metrics 0.16.0",
  "num_cpus",
  "ordered-float",
  "parking_lot",
@@ -4010,6 +4021,27 @@ dependencies = [
  "radix_trie",
  "sketches-ddsketch",
  "t1ha",
+]
+
+[[package]]
+name = "metrics-util"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a58e622a425b7308e73e4390c68b8cb3df4443f2a57495e391b978412531638c"
+dependencies = [
+ "ahash",
+ "atomic-shim",
+ "crossbeam-epoch 0.9.3",
+ "crossbeam-utils 0.8.5",
+ "dashmap",
+ "hashbrown",
+ "indexmap",
+ "metrics 0.17.0",
+ "num_cpus",
+ "ordered-float",
+ "parking_lot",
+ "quanta",
+ "sketches-ddsketch",
 ]
 
 [[package]]
@@ -8220,9 +8252,9 @@ dependencies = [
  "matches",
  "maxminddb",
  "md-5",
- "metrics",
+ "metrics 0.16.0",
  "metrics-tracing-context",
- "metrics-util",
+ "metrics-util 0.10.0",
  "mongodb",
  "nix 0.22.0",
  "nom 6.1.2",
@@ -8378,9 +8410,9 @@ dependencies = [
  "indexmap",
  "lazy_static",
  "lookup",
- "metrics",
+ "metrics 0.16.0",
  "metrics-tracing-context",
- "metrics-util",
+ "metrics-util 0.10.0",
  "once_cell",
  "pest",
  "pest_derive",
