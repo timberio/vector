@@ -4345,6 +4345,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "nom"
+version = "7.0.0-alpha1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd43cd1e53168596e629accc602ada1297f5125fed588d62cf8be81175b46002"
+dependencies = [
+ "memchr",
+ "version_check 0.9.3",
+]
+
+[[package]]
 name = "notify"
 version = "4.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5185,9 +5195,9 @@ dependencies = [
  "indexmap",
  "nom 6.1.2",
  "num_enum",
- "prost",
- "prost-build",
- "prost-types",
+ "prost 0.7.0",
+ "prost-build 0.7.0",
+ "prost-types 0.7.0",
  "shared",
  "snafu",
 ]
@@ -5231,7 +5241,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e6984d2f1a23009bd270b8bb56d0926810a3d483f59c987d77969e9d8e840b2"
 dependencies = [
  "bytes 1.0.1",
- "prost-derive",
+ "prost-derive 0.7.0",
+]
+
+[[package]]
+name = "prost"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de5e2533f59d08fcf364fd374ebda0692a70bd6d7e66ef97f306f45c6c5d8020"
+dependencies = [
+ "bytes 1.0.1",
+ "prost-derive 0.8.0",
 ]
 
 [[package]]
@@ -5246,8 +5266,26 @@ dependencies = [
  "log",
  "multimap",
  "petgraph",
- "prost",
- "prost-types",
+ "prost 0.7.0",
+ "prost-types 0.7.0",
+ "tempfile",
+ "which 4.1.0",
+]
+
+[[package]]
+name = "prost-build"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "355f634b43cdd80724ee7848f95770e7e70eefa6dcf14fea676216573b8fd603"
+dependencies = [
+ "bytes 1.0.1",
+ "heck",
+ "itertools 0.10.1",
+ "log",
+ "multimap",
+ "petgraph",
+ "prost 0.8.0",
+ "prost-types 0.8.0",
  "tempfile",
  "which 4.1.0",
 ]
@@ -5266,20 +5304,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "prost-derive"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "600d2f334aa05acb02a755e217ef1ab6dea4d51b58b7846588b747edec04efba"
+dependencies = [
+ "anyhow",
+ "itertools 0.10.1",
+ "proc-macro2 1.0.26",
+ "quote 1.0.9",
+ "syn 1.0.72",
+]
+
+[[package]]
 name = "prost-types"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b518d7cdd93dab1d1122cf07fa9a60771836c668dde9d9e2a139f957f0d9f1bb"
 dependencies = [
  "bytes 1.0.1",
- "prost",
+ "prost 0.7.0",
+]
+
+[[package]]
+name = "prost-types"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "603bbd6394701d13f3f25aada59c7de9d35a6a5887cfc156181234a44002771b"
+dependencies = [
+ "bytes 1.0.1",
+ "prost 0.8.0",
 ]
 
 [[package]]
 name = "pulsar"
-version = "3.0.1"
+version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83b4422e82143ae595af7a6bb99cd64dcbc8d3dc5c386c61d543e46b4a0ec1ca"
+checksum = "647e253f7d1b1eedd9542951388f38099b92d2814ac37013976dea7d71d01959"
 dependencies = [
  "bit-vec 0.6.3",
  "bytes 1.0.1",
@@ -5290,11 +5351,11 @@ dependencies = [
  "futures-timer",
  "log",
  "native-tls",
- "nom 6.1.2",
+ "nom 7.0.0-alpha1",
  "pem",
- "prost",
- "prost-build",
- "prost-derive",
+ "prost 0.8.0",
+ "prost-build 0.8.0",
+ "prost-derive 0.8.0",
  "rand 0.8.4",
  "regex",
  "tokio",
@@ -7566,8 +7627,8 @@ dependencies = [
  "hyper",
  "percent-encoding",
  "pin-project 1.0.7",
- "prost",
- "prost-derive",
+ "prost 0.7.0",
+ "prost-derive 0.7.0",
  "tokio",
  "tokio-rustls",
  "tokio-stream",
@@ -7585,7 +7646,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c695de27302f4697191dda1c7178131a8cb805463dda02864acb80fe1322fdcf"
 dependencies = [
  "proc-macro2 1.0.26",
- "prost-build",
+ "prost-build 0.7.0",
  "quote 1.0.9",
  "syn 1.0.72",
 ]
@@ -8243,9 +8304,9 @@ dependencies = [
  "postgres-openssl",
  "pretty_assertions",
  "prometheus-parser",
- "prost",
- "prost-build",
- "prost-types",
+ "prost 0.7.0",
+ "prost-build 0.7.0",
+ "prost-types 0.7.0",
  "pulsar",
  "quickcheck",
  "rand 0.8.4",
@@ -8386,9 +8447,9 @@ dependencies = [
  "pest_derive",
  "pin-project 1.0.7",
  "pretty_assertions",
- "prost",
- "prost-build",
- "prost-types",
+ "prost 0.7.0",
+ "prost-build 0.7.0",
+ "prost-types 0.7.0",
  "quickcheck",
  "regex",
  "rlua",

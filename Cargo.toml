@@ -246,7 +246,7 @@ pest = { version = "2.1.3", default-features = false }
 pest_derive = { version = "2.1.0", default-features = false }
 pin-project = { version = "1.0.7", default-features = false }
 postgres-openssl = { version = "0.5.0", default-features = false, features = ["runtime"], optional = true }
-pulsar = { version = "3.0.1", default-features = false, features = ["tokio-runtime"], optional = true }
+pulsar = { version = "4.0.0", default-features = false, features = ["tokio-runtime"], optional = true }
 rand = { version = "0.8.4", default-features = false, features = ["small_rng"] }
 rand_distr = { version = "0.4.1", default-features = false }
 rdkafka = { version = "0.26.0", default-features = false, features = ["tokio", "libz", "ssl", "zstd"], optional = true }
