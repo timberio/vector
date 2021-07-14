@@ -50,6 +50,8 @@ pub mod nginx_metrics;
 pub mod postgresql_metrics;
 #[cfg(feature = "sources-prometheus")]
 pub mod prometheus;
+#[cfg(feature = "sources-redis")]
+pub mod redis;
 #[cfg(feature = "sources-socket")]
 pub mod socket;
 #[cfg(feature = "sources-splunk_hec")]

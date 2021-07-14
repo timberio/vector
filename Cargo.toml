@@ -414,6 +414,7 @@ sources-logs = [
   "sources-kafka",
   "sources-kubernetes-logs",
   "sources-logstash",
+  "sources-redis",
   "sources-socket",
   "sources-splunk_hec",
   "sources-stdin",
@@ -452,6 +453,7 @@ sources-http = ["sources-utils-http"]
 sources-internal_logs = []
 sources-internal_metrics = []
 sources-journald = []
+sources-redis= ["redis"]
 sources-kafka = ["rdkafka"]
 sources-logstash = ["bytesize", "listenfd", "tokio-util/net", "sources-utils-tcp-keepalive", "sources-utils-tcp-socket", "sources-utils-tls"]
 sources-kubernetes-logs = ["file-source", "kubernetes", "transforms-merge", "transforms-regex_parser"]
@@ -704,7 +706,7 @@ nginx-integration-tests = ["sources-nginx_metrics"]
 postgresql_metrics-integration-tests = ["sources-postgresql_metrics"]
 prometheus-integration-tests = ["bytesize", "sinks-prometheus", "sources-prometheus"]
 pulsar-integration-tests = ["sinks-pulsar"]
-redis-integration-tests = ["sinks-redis"]
+redis-integration-tests = ["sinks-redis", "sources-redis"]
 splunk-integration-tests = ["sinks-splunk_hec", "warp"]
 dnstap-integration-tests = ["sources-dnstap"]
 
