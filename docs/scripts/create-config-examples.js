@@ -28,6 +28,7 @@ try {
       };
 
       var requiredParams = [];
+      var required = {};
 
       // Config parameters
       for (const paramName in configuration) {
@@ -41,12 +42,24 @@ try {
       // Remove the "type" param from required, which is added elsewhere
       requiredParams = requiredParams.filter(p => p != "type");
 
+      requiredParams.forEach((p) => {
+        const param = configuration[p];
+        Object.keys(param.type).forEach((key) => {
+          const examples = param.type[key].examples;
+
+          if (examples != null && examples.length > 0) {
+            required[p] = examples[0];
+          }
+        });
+      });
+
       const keyName = `my_${kind.substring(0, kind.length - 1)}_id`;
 
       var example = {
         [kind]: {
           [keyName]: {
             "type": componentType,
+            ...required,
           }
         }
       };
@@ -56,6 +69,7 @@ try {
       }
 
       const common = example;
+
       const advanced = example;
 
       docs['components'][kind][componentType]['example_configs'] = {
@@ -78,7 +92,7 @@ try {
 
   fs.writeFileSync(cueJsonOutput, JSON.stringify(docs), 'utf8');
 
-  console.log(chalk.green(`Success. Finished writing example configs to ${cueJsonOutput}`));
+  console.log(chalk.green(`Success. Finished writing example configs to ${cueJsonOutput}.`));
 } catch (err) {
   console.error(err);
 }
