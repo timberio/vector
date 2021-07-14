@@ -1,18 +1,20 @@
 const fs = require('fs');
-const docsFile = "data/docs.json";
+const cueJsonOutput = "data/docs.json";
 const chalk = require('chalk');
 const TOML = require('@iarna/toml');
 const YAML = require('yaml');
 
 try {
-  chalk.blue("Creating example configurations for all Vector components");
+  console.log(chalk.blue("Creating example configurations for all Vector components..."));
 
-  const data = fs.readFileSync(docsFile, 'utf8');
+  const data = fs.readFileSync(cueJsonOutput, 'utf8');
   const docs = JSON.parse(data);
   const components = docs.components;
 
   // Sources, transforms, sinks
   for (const kind in components) {
+    console.log(chalk.blue(`Creating examples for ${kind}...`));
+
     const componentsOfKind = components[kind];
 
     // Specific components
@@ -62,7 +64,12 @@ try {
     }
   }
 
-  fs.writeFileSync(docsFile, JSON.stringify(docs), 'utf8');
+  console.log(chalk.green("Success. Finished generating examples for all components."));
+  console.log(chalk.blue(`Writing generated examples as JSON to ${cueJsonOutput}...`));
+
+  fs.writeFileSync(cueJsonOutput, JSON.stringify(docs), 'utf8');
+
+  console.log(chalk.green(`Success. Finished writing example configs to ${cueJsonOutput}`));
 } catch (err) {
   console.error(err);
 }
